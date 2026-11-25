@@ -562,7 +562,7 @@
         const result = await postToSheet({ action: "login", username, password });
         currentUser = result.user;
         localStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
-        e.target.reset();
+        document.getElementById("loginForm").reset();
         showDashboard();
       } catch (err) {
         errorBox.textContent = err.message;
