@@ -523,13 +523,14 @@
         `<strong>${escapeHtml(currentUser.name)}</strong> <span class="role-tag">${escapeHtml(currentUser.role)}</span>`;
       document.getElementById("creator").value = currentUser.name;
 
-      const usersBtn = document.getElementById("openUsersModalBtn");
-      if (currentUser.role === "superadmin") {
-        usersBtn.classList.remove("hidden");
-      } else {
-        usersBtn.classList.add("hidden");
-      }
-
+  const usersBtn = document.getElementById("openUsersModalBtn");
+if (usersBtn) {
+  if (currentUser.role === "superadmin") {
+    usersBtn.classList.remove("hidden");
+  } else {
+    usersBtn.classList.add("hidden");
+  }
+}
       fetchSubmissions();
     }
 
