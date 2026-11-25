@@ -309,7 +309,7 @@
     <form id="loginForm">
       <div class="form-group">
         <label for="loginUsername">Username</label>
-        <input type="text" id="loginUsername" placeholder="Contoh: pimpinan atau kreator1" required />
+        <input type="text" id="loginUsername" placeholder="Contoh: superadmin atau kreator1" required />
       </div>
       <div class="form-group">
         <label for="loginPassword">Password</label>
@@ -345,6 +345,49 @@
     </div>
   </div>
 
+  <!-- MODAL KELOLA AKUN (SUPER ADMIN) -->
+  <div id="usersModal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h2>Kelola Akun Tim</h2>
+        <button type="button" class="btn-secondary" id="closeUsersModalBtn">Tutup</button>
+      </div>
+      <div id="usersAlert" class="alert-box hidden"></div>
+
+      <form id="addUserForm" style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="newAccUser" placeholder="contoh: kreator2" required />
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="text" id="newAccPass" placeholder="min. 4 karakter" required />
+          </div>
+          <div class="form-group">
+            <label>Nama Lengkap</label>
+            <input type="text" id="newAccName" placeholder="Budi (Desainer)" required />
+          </div>
+          <div class="form-group">
+            <label>Role</label>
+            <select id="newAccRole">
+              <option value="creator">Creator (Pengaju)</option>
+              <option value="approver">Approver (Penyetuju)</option>
+              <option value="superadmin">Super Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Email Notifikasi</label>
+          <input type="email" id="newAccEmail" placeholder="email@gmail.com" required />
+        </div>
+        <button type="submit" class="btn-primary" id="addUserBtn">Tambah Akun</button>
+      </form>
+
+      <div id="usersListContainer" style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
+    </div>
+  </div>
+
   <!-- HALAMAN DASHBOARD -->
   <div id="dashboardSection" class="container hidden">
     <header>
@@ -357,6 +400,7 @@
         <span class="sync-status" id="syncStatus">Memuat data...</span>
         <button type="button" class="btn-secondary" id="refreshBtn">Muat Ulang</button>
         <button type="button" class="btn-secondary" id="exportBtn">Ekspor Laporan (CSV)</button>
+        <button type="button" class="btn-secondary hidden" id="openUsersModalBtn">Kelola Akun</button>
         <button type="button" class="btn-secondary" id="openPwdModalBtn">Ubah Password</button>
         <button type="button" class="btn-logout" id="logoutBtn">Keluar</button>
       </div>
@@ -444,7 +488,7 @@
 
   <script>
     // GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzzsHREWcPqfKqIAVGUijJg_Q0AXbzVZegG7CVxog6zw5OiqNnQNJL2HNmtJpUDdmxu/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzzsHREWcPqfKqIAVGUijJg_Q0AXbzVZegG7CVxog6zw5OiqNnQNJL2HNmtJpUDdmxu/exec;
     const SESSION_KEY = "socmed_user_session_v1";
 
     let currentUser = null;
@@ -478,6 +522,14 @@
       document.getElementById("userBadge").innerHTML =
         `<strong>${escapeHtml(currentUser.name)}</strong> <span class="role-tag">${escapeHtml(currentUser.role)}</span>`;
       document.getElementById("creator").value = currentUser.name;
+
+      const usersBtn = document.getElementById("openUsersModalBtn");
+      if (currentUser.role === "superadmin") {
+        usersBtn.classList.remove("hidden");
+      } else {
+        usersBtn.classList.add("hidden");
+      }
+
       fetchSubmissions();
     }
 
@@ -578,6 +630,79 @@
       }
     });
 
+    const usersModal = document.getElementById("usersModal");
+    const usersAlert = document.getElementById("usersAlert");
+
+    document.getElementById("openUsersModalBtn").addEventListener("click", () => {
+      usersAlert.classList.add("hidden");
+      usersModal.classList.remove("hidden");
+      loadUsersList();
+    });
+
+    document.getElementById("closeUsersModalBtn").addEventListener("click", () => {
+      usersModal.classList.add("hidden");
+    });
+
+    async function loadUsersList() {
+      const container = document.getElementById("usersListContainer");
+      container.innerHTML = `<div style="font-size:0.85rem;color:var(--muted);">Memuat daftar akun...</div>`;
+      try {
+        const res = await postToSheet({ action: "getUsers" });
+        container.innerHTML = res.users.map(u => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:0.83rem;">
+            <div>
+              <strong>${escapeHtml(u.name)}</strong> (@${escapeHtml(u.username)}) <span class="role-tag">${escapeHtml(u.role)}</span>
+              <div style="color:var(--muted);font-size:0.78rem;">${escapeHtml(u.email || "Tanpa email")}</div>
+            </div>
+            ${u.username !== currentUser.username ? `
+              <button type="button" class="btn-logout" style="padding:4px 8px;font-size:0.75rem;" onclick="deleteUserAccount('${escapeHtml(u.username)}')">Hapus</button>
+            ` : `<span style="font-size:0.75rem;color:var(--muted);">Aktif</span>`}
+          </div>
+        `).join("");
+      } catch (err) {
+        container.innerHTML = `<div class="alert-box alert-error">${err.message}</div>`;
+      }
+    }
+
+    document.getElementById("addUserForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("addUserBtn");
+      btn.disabled = true;
+      btn.textContent = "Menyimpan...";
+      usersAlert.className = "alert-box hidden";
+
+      try {
+        await postToSheet({
+          action: "addUser",
+          username: document.getElementById("newAccUser").value.trim(),
+          password: document.getElementById("newAccPass").value.trim(),
+          name: document.getElementById("newAccName").value.trim(),
+          role: document.getElementById("newAccRole").value,
+          email: document.getElementById("newAccEmail").value.trim()
+        });
+        e.target.reset();
+        usersAlert.textContent = "Akun berhasil ditambahkan!";
+        usersAlert.className = "alert-box alert-success";
+        loadUsersList();
+      } catch (err) {
+        usersAlert.textContent = err.message;
+        usersAlert.className = "alert-box alert-error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Tambah Akun";
+      }
+    });
+
+    window.deleteUserAccount = async function(username) {
+      try {
+        await postToSheet({ action: "deleteUser", username });
+        loadUsersList();
+      } catch (err) {
+        usersAlert.textContent = err.message;
+        usersAlert.className = "alert-box alert-error";
+      }
+    };
+
     async function fetchSubmissions() {
       setSyncStatus("Menyinkronkan...");
       try {
@@ -634,7 +759,7 @@
       const query = document.getElementById("searchInput").value.trim().toLowerCase();
       const statusFilter = document.getElementById("statusFilter").value;
       const listEl = document.getElementById("submissionList");
-      const isApprover = currentUser && currentUser.role === "approver";
+      const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
 
       const filtered = submissions.filter(item => {
         const matchStatus = statusFilter === "all" || item.status === statusFilter;
@@ -829,7 +954,7 @@
           return;
         }
 
-        if (currentUser.role !== "approver") return;
+        if (currentUser.role !== "approver" && currentUser.role !== "superadmin") return;
 
         if (action === "approve") {
           btn.disabled = true;
