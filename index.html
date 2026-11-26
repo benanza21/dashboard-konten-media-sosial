@@ -137,7 +137,7 @@
       font-weight: 600;
       cursor: pointer;
     }
-    .btn-secondary:hover { background: #f8fafc; }
+    .btn-secondary:hover:not(:disabled) { background: #f8fafc; }
 
     .btn-logout {
       background: #fee2e2;
@@ -166,7 +166,7 @@
     .stat-card .label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
     .stat-card .value { font-size: 1.75rem; font-weight: 700; margin-top: 4px; }
 
-.main-grid {
+    .main-grid {
       display: grid;
       grid-template-columns: 340px 1fr;
       gap: 20px;
@@ -179,34 +179,7 @@
     .main-grid > main.card {
       display: flex;
       flex-direction: column;
-      max-height: 680px;
-    }
-
-    .submission-list {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      overflow-y: auto;
-      flex: 1;
-      padding-right: 4px;
-    }
-
-    .pagination-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin-top: 14px;
-      padding-top: 12px;
-      border-top: 1px solid var(--border);
-      font-size: 0.83rem;
-      color: var(--muted);
-    }
-
-    .pagination-controls {
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      max-height: 760px;
     }
 
     .card {
@@ -254,7 +227,33 @@
     .toolbar input { flex: 1 1 200px; }
     .toolbar select { flex: 0 1 180px; }
 
-    .submission-list { display: flex; flex-direction: column; gap: 14px; }
+    .submission-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      flex: 1;
+      padding-right: 4px;
+    }
+
+    .pagination-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 0.83rem;
+      color: var(--muted);
+    }
+
+    .pagination-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .submission-item {
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -339,7 +338,7 @@
     <h1>LOGIN DASHBOARD PERSETUJUAN KONTEN</h1>
     <p>Masuk menggunakan akun yang telah terdaftar.</p>
     <div id="loginError" class="alert-box alert-error hidden"></div>
-    <form id="loginForm">
+    <form id="loginForm" onsubmit="return false;">
       <div class="form-group">
         <label for="loginUsername">Username</label>
         <input type="text" id="loginUsername" placeholder="Masukkan Username" required />
@@ -348,7 +347,7 @@
         <label for="loginPassword">Password</label>
         <input type="password" id="loginPassword" placeholder="Masukkan Password" required />
       </div>
-      <button type="submit" class="btn-primary" id="loginBtn">Masuk</button>
+      <button type="button" class="btn-primary" id="loginBtn">Masuk</button>
     </form>
   </div>
 
@@ -380,7 +379,7 @@
 
   <!-- MODAL KELOLA AKUN (SUPER ADMIN) -->
   <div id="usersModal" class="modal-backdrop hidden">
-    <div class="modal-card" style="max-width: 520px;">
+    <div class="modal-card" style="max-width: 540px;">
       <div class="modal-header">
         <h2>Kelola Akun Tim</h2>
         <button type="button" class="btn-secondary" id="closeUsersModalBtn">Tutup</button>
@@ -417,7 +416,7 @@
         <button type="submit" class="btn-primary" id="addUserBtn">Tambah Akun</button>
       </form>
 
-      <div id="usersListContainer" style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
+      <div id="usersListContainer" style="max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
     </div>
   </div>
 
@@ -513,6 +512,7 @@
             <option value="revision">Perlu Revisi</option>
           </select>
         </div>
+
         <div class="submission-list" id="submissionList"></div>
         <div class="pagination-bar" id="paginationBar"></div>
       </main>
@@ -520,9 +520,10 @@
   </div>
 
   <script>
-    // GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA
+    // GANTI URL_WEB_APP_ANDA DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzzsHREWcPqfKqIAVGUijJg_Q0AXbzVZegG7CVxog6zw5OiqNnQNJL2HNmtJpUDdmxu/exec";
     const SESSION_KEY = "socmed_user_session_v1";
+
     let currentUser = null;
     let submissions = [];
     let pendingDeleteId = null;
@@ -531,6 +532,9 @@
     let currentPage = 1;
     const ITEMS_PER_PAGE = 5;
 
+    let cachedUsers = [];
+    let editingUsername = null;
+
     function initApp() {
       const saved = localStorage.getItem(SESSION_KEY);
       if (saved) {
@@ -538,7 +542,7 @@
           currentUser = JSON.parse(saved);
           showDashboard();
           return;
-        } catch {
+        } catch (err) {
           localStorage.removeItem(SESSION_KEY);
         }
       }
@@ -582,16 +586,21 @@
       return result;
     }
 
-    document.getElementById("loginBtn").addEventListener("click", async (e) => {
-      e.preventDefault();
+    document.getElementById("loginBtn").addEventListener("click", async () => {
       const loginBtn = document.getElementById("loginBtn");
       const errorBox = document.getElementById("loginError");
+      const username = document.getElementById("loginUsername").value.trim();
+      const password = document.getElementById("loginPassword").value.trim();
+
+      if (!username || !password) {
+        errorBox.textContent = "Username dan password wajib diisi.";
+        errorBox.classList.remove("hidden");
+        return;
+      }
+
       errorBox.classList.add("hidden");
       loginBtn.disabled = true;
       loginBtn.textContent = "Memeriksa...";
-
-      const username = document.getElementById("loginUsername").value.trim();
-      const password = document.getElementById("loginPassword").value.trim();
 
       try {
         const result = await postToSheet({ action: "login", username, password });
@@ -669,6 +678,7 @@
 
     document.getElementById("openUsersModalBtn").addEventListener("click", () => {
       usersAlert.classList.add("hidden");
+      editingUsername = null;
       usersModal.classList.remove("hidden");
       loadUsersList();
     });
@@ -676,9 +686,6 @@
     document.getElementById("closeUsersModalBtn").addEventListener("click", () => {
       usersModal.classList.add("hidden");
     });
-
-    let cachedUsers = [];
-    let editingUsername = null;
 
     async function loadUsersList() {
       const container = document.getElementById("usersListContainer");
@@ -727,592 +734,4 @@
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:0.83rem;">
             <div>
               <strong>${escapeHtml(u.name)}</strong> (@${escapeHtml(u.username)}) <span class="role-tag">${escapeHtml(u.role)}</span>
-              <div style="color:var(--muted);font-size:0.78rem;">${escapeHtml(u.email || "Tanpa email")} • Pass: <code>${escapeHtml(u.password)}</code></div>
-            </div>
-            <div style="display:flex;gap:4px;flex-shrink:0;">
-              <button type="button" class="btn-secondary" style="padding:4px 8px;font-size:0.75rem;" data-edit-user="${escapeHtml(u.username)}">Ubah</button>
-              ${u.username !== currentUser.username ? `
-                <button type="button" class="btn-logout" style="padding:4px 8px;font-size:0.75rem;" data-del-user="${escapeHtml(u.username)}">Hapus</button>
-              ` : ""}
-            </div>
-          </div>
-        `;
-      }).join("");
-    }
-
-    document.getElementById("usersListContainer").addEventListener("click", async (e) => {
-      const editBtn = e.target.closest("button[data-edit-user]");
-      if (editBtn) {
-        editingUsername = editBtn.dataset.editUser;
-        renderUsersList();
-        return;
-      }
-
-      if (e.target.closest("button[data-cancel-user]")) {
-        editingUsername = null;
-        renderUsersList();
-        return;
-      }
-
-      const saveBtn = e.target.closest("button[data-save-user]");
-      if (saveBtn) {
-        const username = saveBtn.dataset.saveUser;
-        const box = saveBtn.closest("[data-edit-box]");
-        const name = box.querySelector(".u-edit-name").value.trim();
-        const password = box.querySelector(".u-edit-pass").value.trim();
-        const role = box.querySelector(".u-edit-role").value;
-        const email = box.querySelector(".u-edit-email").value.trim();
-
-        saveBtn.disabled = true;
-        saveBtn.textContent = "Menyimpan...";
-        try {
-          await postToSheet({ action: "updateUser", username, name, password, role, email });
-          editingUsername = null;
-          usersAlert.textContent = `Akun @${username} berhasil diperbarui!`;
-          usersAlert.className = "alert-box alert-success";
-          loadUsersList();
-        } catch (err) {
-          usersAlert.textContent = err.message;
-          usersAlert.className = "alert-box alert-error";
-          saveBtn.disabled = false;
-          saveBtn.textContent = "Simpan";
-        }
-        return;
-      }
-
-      const delBtn = e.target.closest("button[data-del-user]");
-      if (delBtn) {
-        const username = delBtn.dataset.delUser;
-        delBtn.disabled = true;
-        delBtn.textContent = "...";
-        try {
-          await postToSheet({ action: "deleteUser", username });
-          usersAlert.textContent = `Akun @${username} telah dihapus.`;
-          usersAlert.className = "alert-box alert-success";
-          loadUsersList();
-        } catch (err) {
-          usersAlert.textContent = err.message;
-          usersAlert.className = "alert-box alert-error";
-          delBtn.disabled = false;
-          delBtn.textContent = "Hapus";
-        }
-      }
-    });
-
-    window.deleteUserAccount = async function(username) {
-      try {
-        await postToSheet({ action: "deleteUser", username });
-        loadUsersList();
-      } catch (err) {
-        usersAlert.textContent = err.message;
-        usersAlert.className = "alert-box alert-error";
-      }
-    };
-
-    async function fetchSubmissions() {
-      setSyncStatus("Menyinkronkan...");
-      try {
-        const result = await postToSheet({ action: "getSubmissions" });
-        submissions = result.data || [];
-        renderList();
-        const now = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-        setSyncStatus(`Tersinkronisasi (${now})`);
-      } catch (err) {
-        console.error(err);
-        setSyncStatus("Gagal terhubung ke Google Sheets");
-        document.getElementById("submissionList").innerHTML =
-          `<div class="empty-state" style="color:#991b1b;">Detail Error: <strong>${escapeHtml(err.message)}</strong></div>`;
-      }
-    }
-
-    function escapeHtml(str) {
-      const div = document.createElement("div");
-      div.textContent = str ?? "";
-      return div.innerHTML;
-    }
-
-    function sanitizeUrl(url) {
-      if (!url) return "";
-      try {
-        const parsed = new URL(url);
-        if (parsed.protocol === "https:" || parsed.protocol === "http:") return parsed.href;
-        return "";
-      } catch {
-        return "";
-      }
-    }
-
-    function getStatusBadge(status) {
-      const map = {
-        pending: { text: "Menunggu Review", cls: "pending" },
-        approved: { text: "Disetujui", cls: "approved" },
-        revision: { text: "Perlu Revisi", cls: "revision" }
-      };
-      const info = map[status] || map.pending;
-      return `<span class="badge ${info.cls}">${info.text}</span>`;
-    }
-
-    function updateStats() {
-      document.getElementById("statTotal").textContent = submissions.length;
-      document.getElementById("statPending").textContent = submissions.filter(s => s.status === "pending").length;
-      document.getElementById("statApproved").textContent = submissions.filter(s => s.status === "approved").length;
-      document.getElementById("statRevision").textContent = submissions.filter(s => s.status === "revision").length;
-    }
-
-    function renderList() {
-      const query = document.getElementById("searchInput").value.trim().toLowerCase();
-      const statusFilter = document.getElementById("statusFilter").value;
-      const listEl = document.getElementById("submissionList");
-      const paginationEl = document.getElementById("paginationBar");
-      const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
-
-      const filtered = submissions.filter(item => {
-        const matchStatus = statusFilter === "all" || item.status === statusFilter;
-        const matchQuery =
-          !query ||
-          item.title.toLowerCase().includes(query) ||
-          item.platform.toLowerCase().includes(query) ||
-          item.creator.toLowerCase().includes(query) ||
-          (item.approver && item.approver.toLowerCase().includes(query));
-        return matchStatus && matchQuery;
-      });
-
-      updateStats();
-
-      if (filtered.length === 0) {
-        listEl.innerHTML = `<div class="empty-state">Tidak ada pengajuan konten yang cocok dengan filter saat ini.</div>`;
-        paginationEl.innerHTML = "";
-        return;
-      }
-
-   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-   if (currentPage > totalPages) currentPage = totalPages;
-   if (currentPage < 1) currentPage = 1;
-
-   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-   const paginatedItems = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-   const platforms = ["Instagram", "TikTok", "YouTube", "LinkedIn", "X / Twitter"];
-
-   listEl.innerHTML = paginatedItems.map((item, idx) => {
-     const itemNumber = startIndex + idx + 1;
-     const safeUrl = sanitizeUrl(item.assetUrl);
-     const isConfirmingDelete = pendingDeleteId === item.id;
-     const isEditingRevision = activeRevisionId === item.id;
-     const isEditingContent = activeEditId === item.id;
-     const hasAuditInfo = item.approver || item.approvedAt;
-     const canCreatorEdit = item.status === "revision" && (currentUser.role === "creator" || currentUser.name === item.creator);
-
-     return `
-       <article class="submission-item" data-id="${escapeHtml(item.id)}">
-         <div class="item-header">
-           <div class="item-title"><span style="color:var(--primary);margin-right:6px;">#${itemNumber}</span>${escapeHtml(item.title)}</div>
-           ${getStatusBadge(item.status)}
-         </div>
-         <div class="meta">
-           <strong>${escapeHtml(item.platform)}</strong> • Rencana tayang: <strong>${escapeHtml(item.publishDate)}</strong> • Pengaju: ${escapeHtml(item.creator)}
-         </div>
-         <div class="caption-box">${escapeHtml(item.caption)}</div>
-         ${safeUrl ? `<a class="asset-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">Lihat Aset / Preview Konten ↗</a>` : ""}
-
-         ${item.status === "approved" && hasAuditInfo ? `
-           <div class="approval-log">
-             <strong>Akun Penyetuju:</strong> ${escapeHtml(item.approver || "-")} • <strong>Waktu:</strong> ${escapeHtml(item.approvedAt || "-")}
-           </div>
-         ` : ""}
-
-         ${item.status === "revision" ? `
-           <div class="revision-note">
-             <div><strong>Catatan Revisi:</strong> ${escapeHtml(item.revisionNote || "-")}</div>
-             ${hasAuditInfo ? `<div style="margin-top:4px;font-size:0.78rem;opacity:0.9;">Diminta oleh <strong>${escapeHtml(item.approver || "-")}</strong> pada ${escapeHtml(item.approvedAt || "-")}</div>` : ""}
-           </div>
-         ` : ""}
-
-         ${isEditingContent ? `
-           <div class="inline-edit-box">
-             <h4>Perbaiki Konten & Ajukan Ulang</h4>
-             <div class="form-group">
-               <label>Judul / Topik</label>
-               <input type="text" class="edit-title" value="${escapeHtml(item.title)}" />
-             </div>
-             <div class="form-group">
-               <label>Platform</label>
-               <select class="edit-platform">
-                 ${platforms.map(p => `<option value="${p}" ${item.platform === p ? "selected" : ""}>${p}</option>`).join("")}
-               </select>
-             </div>
-             <div class="form-group">
-               <label>Rencana Tanggal Tayang</label>
-               <input type="date" class="edit-date" value="${escapeHtml(item.publishDate)}" />
-             </div>
-             <div class="form-group">
-               <label>Tautan Desain / Video</label>
-               <input type="url" class="edit-url" value="${escapeHtml(item.assetUrl || "")}" />
-             </div>
-             <div class="form-group">
-               <label>Caption / Brief</label>
-               <textarea class="edit-caption">${escapeHtml(item.caption)}</textarea>
-             </div>
-             <div style="display:flex;gap:8px;">
-               <button type="button" class="btn-edit" data-action="save-edit">Simpan & Ajukan Ulang</button>
-               <button type="button" class="btn-delete" style="margin-left:0;" data-action="cancel-edit">Batal</button>
-             </div>
-           </div>
-         ` : ""}
-
-         ${isApprover && isEditingRevision ? `
-           <div style="margin: 10px 0; padding: 10px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 7px;">
-             <label style="font-size: 0.8rem; margin-bottom: 4px;">Catatan Revisi:</label>
-             <input type="text" class="rev-input" value="${escapeHtml(item.revisionNote || "")}" placeholder="Tulis bagian yang perlu diperbaiki..." style="margin-bottom: 8px;" />
-             <div style="display: flex; gap: 6px;">
-               <button type="button" class="btn-revise" data-action="save-revise">Simpan Revisi</button>
-               <button type="button" class="btn-delete" style="margin-left: 0;" data-action="cancel-revise">Batal</button>
-             </div>
-           </div>
-         ` : ""}
-
-         <div class="actions">
-           ${canCreatorEdit && !isEditingContent ? `
-             <button type="button" class="btn-edit" data-action="edit-content">Edit & Ajukan Ulang</button>
-           ` : ""}
-
-           ${isApprover ? `
-             <button type="button" class="btn-approve" data-action="approve">Setujui</button>
-             <button type="button" class="btn-revise" data-action="revise">Minta Revisi</button>
-             ${isConfirmingDelete ? `
-               <button type="button" class="btn-delete" style="background:#dc2626;color:#fff;" data-action="confirm-delete">Ya, Hapus Permanen</button>
-               <button type="button" class="btn-delete" style="margin-left:0;" data-action="cancel-delete">Batal</button>
-             ` : `
-               <button type="button" class="btn-delete" data-action="delete">Hapus</button>
-             `}
-           ` : ""}
-         </div>
-       </article>
-     `;
-   }).join("");
-
-   paginationEl.innerHTML = `
-     <span>Menampilkan <strong>${startIndex + 1}–${Math.min(startIndex + ITEMS_PER_PAGE, filtered.length)}</strong> dari <strong>${filtered.length}</strong> pengajuan</span>
-     <div class="pagination-controls">
-       <button type="button" class="btn-secondary" id="prevPageBtn" ${currentPage === 1 ? "disabled" : ""}>← Sebelumnya</button>
-       <span style="padding:0 6px;font-weight:600;color:var(--text);">Hal ${currentPage} / ${totalPages}</span>
-       <button type="button" class="btn-secondary" id="nextPageBtn" ${currentPage === totalPages ? "disabled" : ""}>Berikutnya →</button>
-     </div>
-   `;
-
-   document.getElementById("prevPageBtn").addEventListener("click", () => {
-     if (currentPage > 1) {
-       currentPage--;
-       renderList();
-       listEl.scrollTop = 0;
-     }
-   });
-
-   document.getElementById("nextPageBtn").addEventListener("click", () => {
-     if (currentPage < totalPages) {
-       currentPage++;
-       renderList();
-       listEl.scrollTop = 0;
-     }
-   });
- }
-
-      if (filtered.length === 0) {
-        listEl.innerHTML = `<div class="empty-state">Tidak ada pengajuan konten yang cocok dengan filter saat ini.</div>`;
-        return;
-      }
-
-      const platforms = ["Instagram", "TikTok", "YouTube", "LinkedIn", "X / Twitter"];
-
-      listEl.innerHTML = filtered.map(item => {
-        const safeUrl = sanitizeUrl(item.assetUrl);
-        const isConfirmingDelete = pendingDeleteId === item.id;
-        const isEditingRevision = activeRevisionId === item.id;
-        const isEditingContent = activeEditId === item.id;
-        const hasAuditInfo = item.approver || item.approvedAt;
-        const canCreatorEdit = item.status === "revision" && (currentUser.role === "creator" || currentUser.name === item.creator);
-
-        return `
-          <article class="submission-item" data-id="${escapeHtml(item.id)}">
-            <div class="item-header">
-              <div class="item-title">${escapeHtml(item.title)}</div>
-              ${getStatusBadge(item.status)}
-            </div>
-            <div class="meta">
-              <strong>${escapeHtml(item.platform)}</strong> • Rencana tayang: <strong>${escapeHtml(item.publishDate)}</strong> • Pengaju: ${escapeHtml(item.creator)}
-            </div>
-            <div class="caption-box">${escapeHtml(item.caption)}</div>
-            ${safeUrl ? `<a class="asset-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">Lihat Aset / Preview Konten ↗</a>` : ""}
-
-            ${item.status === "approved" && hasAuditInfo ? `
-              <div class="approval-log">
-                <strong>Akun Penyetuju:</strong> ${escapeHtml(item.approver || "-")} • <strong>Waktu:</strong> ${escapeHtml(item.approvedAt || "-")}
-              </div>
-            ` : ""}
-
-            ${item.status === "revision" ? `
-              <div class="revision-note">
-                <div><strong>Catatan Revisi:</strong> ${escapeHtml(item.revisionNote || "-")}</div>
-                ${hasAuditInfo ? `<div style="margin-top:4px;font-size:0.78rem;opacity:0.9;">Diminta oleh <strong>${escapeHtml(item.approver || "-")}</strong> pada ${escapeHtml(item.approvedAt || "-")}</div>` : ""}
-              </div>
-            ` : ""}
-
-            ${isEditingContent ? `
-              <div class="inline-edit-box">
-                <h4>Perbaiki Konten & Ajukan Ulang</h4>
-                <div class="form-group">
-                  <label>Judul / Topik</label>
-                  <input type="text" class="edit-title" value="${escapeHtml(item.title)}" />
-                </div>
-                <div class="form-group">
-                  <label>Platform</label>
-                  <select class="edit-platform">
-                    ${platforms.map(p => `<option value="${p}" ${item.platform === p ? "selected" : ""}>${p}</option>`).join("")}
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>Rencana Tanggal Tayang</label>
-                  <input type="date" class="edit-date" value="${escapeHtml(item.publishDate)}" />
-                </div>
-                <div class="form-group">
-                  <label>Tautan Desain / Video</label>
-                  <input type="url" class="edit-url" value="${escapeHtml(item.assetUrl || "")}" />
-                </div>
-                <div class="form-group">
-                  <label>Caption / Brief</label>
-                  <textarea class="edit-caption">${escapeHtml(item.caption)}</textarea>
-                </div>
-                <div style="display:flex;gap:8px;">
-                  <button type="button" class="btn-edit" data-action="save-edit">Simpan & Ajukan Ulang</button>
-                  <button type="button" class="btn-delete" style="margin-left:0;" data-action="cancel-edit">Batal</button>
-                </div>
-              </div>
-            ` : ""}
-
-            ${isApprover && isEditingRevision ? `
-              <div style="margin: 10px 0; padding: 10px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 7px;">
-                <label style="font-size: 0.8rem; margin-bottom: 4px;">Catatan Revisi:</label>
-                <input type="text" class="rev-input" value="${escapeHtml(item.revisionNote || "")}" placeholder="Tulis bagian yang perlu diperbaiki..." style="margin-bottom: 8px;" />
-                <div style="display: flex; gap: 6px;">
-                  <button type="button" class="btn-revise" data-action="save-revise">Simpan Revisi</button>
-                  <button type="button" class="btn-delete" style="margin-left: 0;" data-action="cancel-revise">Batal</button>
-                </div>
-              </div>
-            ` : ""}
-
-            <div class="actions">
-              ${canCreatorEdit && !isEditingContent ? `
-                <button type="button" class="btn-edit" data-action="edit-content">Edit & Ajukan Ulang</button>
-              ` : ""}
-
-              ${isApprover ? `
-                <button type="button" class="btn-approve" data-action="approve">Setujui</button>
-                <button type="button" class="btn-revise" data-action="revise">Minta Revisi</button>
-                ${isConfirmingDelete ? `
-                  <button type="button" class="btn-delete" style="background:#dc2626;color:#fff;" data-action="confirm-delete">Ya, Hapus Permanen</button>
-                  <button type="button" class="btn-delete" style="margin-left:0;" data-action="cancel-delete">Batal</button>
-                ` : `
-                  <button type="button" class="btn-delete" data-action="delete">Hapus</button>
-                `}
-              ` : ""}
-            </div>
-          </article>
-        `;
-      }).join("");
-    }
-
-    document.getElementById("contentForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const submitBtn = document.getElementById("submitBtn");
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Mengirim...";
-
-      const newItem = {
-        id: "ID-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
-        title: document.getElementById("title").value.trim(),
-        platform: document.getElementById("platform").value,
-        publishDate: document.getElementById("publishDate").value,
-        creator: currentUser.name,
-        creatorEmail: currentUser.email || "",
-        assetUrl: document.getElementById("assetUrl").value.trim(),
-        caption: document.getElementById("caption").value.trim(),
-        status: "pending",
-        revisionNote: ""
-      };
-
-      try {
-        setSyncStatus("Menyimpan pengajuan...");
-        await postToSheet({ action: "create", item: newItem });
-        e.target.reset();
-        document.getElementById("creator").value = currentUser.name;
-        await fetchSubmissions();
-      } catch (err) {
-        setSyncStatus("Gagal menyimpan: " + err.message);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Kirim Pengajuan";
-      }
-    });
-
-    document.getElementById("submissionList").addEventListener("click", async (e) => {
-      const btn = e.target.closest("button[data-action]");
-      if (!btn || !currentUser) return;
-
-      const card = btn.closest(".submission-item");
-      const id = card?.dataset.id;
-      const action = btn.dataset.action;
-      if (!id) return;
-
-      try {
-        if (action === "edit-content") {
-          activeEditId = id;
-          activeRevisionId = null;
-          pendingDeleteId = null;
-          renderList();
-          return;
-        }
-        if (action === "cancel-edit") {
-          activeEditId = null;
-          renderList();
-          return;
-        }
-        if (action === "save-edit") {
-          const updatedItem = {
-            title: card.querySelector(".edit-title").value.trim(),
-            platform: card.querySelector(".edit-platform").value,
-            publishDate: card.querySelector(".edit-date").value,
-            assetUrl: card.querySelector(".edit-url").value.trim(),
-            caption: card.querySelector(".edit-caption").value.trim()
-          };
-          if (!updatedItem.title || !updatedItem.caption) {
-            setSyncStatus("Judul dan caption wajib diisi!");
-            return;
-          }
-          btn.disabled = true;
-          btn.textContent = "Menyimpan...";
-          activeEditId = null;
-          setSyncStatus("Mengajukan ulang konten...");
-          await postToSheet({ action: "editContent", id, item: updatedItem });
-          await fetchSubmissions();
-          return;
-        }
-
-        if (currentUser.role !== "approver" && currentUser.role !== "superadmin") return;
-
-        if (action === "approve") {
-          btn.disabled = true;
-          pendingDeleteId = null;
-          activeRevisionId = null;
-          setSyncStatus("Menyimpan persetujuan...");
-          await postToSheet({
-            action: "updateStatus",
-            id,
-            status: "approved",
-            revisionNote: "",
-            approver: currentUser.name
-          });
-          await fetchSubmissions();
-        } else if (action === "revise") {
-          activeRevisionId = id;
-          pendingDeleteId = null;
-          renderList();
-        } else if (action === "cancel-revise") {
-          activeRevisionId = null;
-          renderList();
-        } else if (action === "save-revise") {
-          const input = card.querySelector(".rev-input");
-          const trimmed = input ? input.value.trim() : "";
-          if (!trimmed) {
-            setSyncStatus("Catatan revisi wajib diisi!");
-            return;
-          }
-          btn.disabled = true;
-          activeRevisionId = null;
-          setSyncStatus("Menyimpan catatan revisi...");
-          await postToSheet({
-            action: "updateStatus",
-            id,
-            status: "revision",
-            revisionNote: trimmed,
-            approver: currentUser.name
-          });
-          await fetchSubmissions();
-        } else if (action === "delete") {
-          pendingDeleteId = id;
-          activeRevisionId = null;
-          renderList();
-        } else if (action === "cancel-delete") {
-          pendingDeleteId = null;
-          renderList();
-        } else if (action === "confirm-delete") {
-          btn.disabled = true;
-          btn.textContent = "Menghapus...";
-          pendingDeleteId = null;
-          setSyncStatus("Menghapus data...");
-          await postToSheet({ action: "delete", id });
-          await fetchSubmissions();
-        }
-      } catch (err) {
-        console.error(err);
-        btn.disabled = false;
-        setSyncStatus("Error: " + err.message);
-      }
-    });
-
-    function exportToCSV() {
-      if (!submissions || submissions.length === 0) {
-        setSyncStatus("Tidak ada data untuk diekspor.");
-        return;
-      }
-
-      const headers = [
-        "ID", "Judul Konten", "Platform", "Rencana Tayang",
-        "Pengaju", "Tautan Aset", "Caption", "Status",
-        "Catatan Revisi", "Akun Penyetuju", "Waktu Persetujuan"
-      ];
-
-      const escapeCsv = (val) => {
-        const str = String(val ?? "").replace(/"/g, '""');
-        return `"${str}"`;
-      };
-
-      const rows = submissions.map(item => [
-        item.id,
-        item.title,
-        item.platform,
-        item.publishDate,
-        item.creator,
-        item.assetUrl,
-        item.caption,
-        item.status === "approved" ? "Disetujui" : item.status === "revision" ? "Perlu Revisi" : "Menunggu Review",
-        item.revisionNote,
-        item.approver,
-        item.approvedAt
-      ].map(escapeCsv).join(";"));
-
-      const csvContent = "\uFEFF" + [headers.map(escapeCsv).join(";"), ...rows].join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      const today = new Date().toISOString().slice(0, 10);
-      link.href = url;
-      link.setAttribute("download", `laporan-konten-medsos-${today}.csv`);
-      link.style.display = "none";
-      document.body.appendChild(link);
-      link.click();
-
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }, 200);
-    }
-
-    document.getElementById("exportBtn").addEventListener("click", exportToCSV);
-    document.getElementById("refreshBtn").addEventListener("click", fetchSubmissions);
-    document.getElementById("searchInput").addEventListener("input", () => { currentPage = 1; renderList(); });
-    document.getElementById("statusFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
-
-    initApp();
-  </script>
-</body>
-</html>
+              <div style="color:var(--muted);font-size:0.78rem;">${escapeHtml(u.email || "Tanpa email")} • Pass: <code>
