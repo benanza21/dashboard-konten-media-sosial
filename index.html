@@ -642,53 +642,125 @@
       usersModal.classList.add("hidden");
     });
 
+    let cachedUsers = [];
+    let editingUsername = null;
+
     async function loadUsersList() {
       const container = document.getElementById("usersListContainer");
       container.innerHTML = `<div style="font-size:0.85rem;color:var(--muted);">Memuat daftar akun...</div>`;
       try {
         const res = await postToSheet({ action: "getUsers" });
-        container.innerHTML = res.users.map(u => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:0.83rem;">
-            <div>
-              <strong>${escapeHtml(u.name)}</strong> (@${escapeHtml(u.username)}) <span class="role-tag">${escapeHtml(u.role)}</span>
-              <div style="color:var(--muted);font-size:0.78rem;">${escapeHtml(u.email || "Tanpa email")}</div>
-            </div>
-            ${u.username !== currentUser.username ? `
-              <button type="button" class="btn-logout" style="padding:4px 8px;font-size:0.75rem;" onclick="deleteUserAccount('${escapeHtml(u.username)}')">Hapus</button>
-            ` : `<span style="font-size:0.75rem;color:var(--muted);">Aktif</span>`}
-          </div>
-        `).join("");
+        cachedUsers = res.users || [];
+        renderUsersList();
       } catch (err) {
-        container.innerHTML = `<div class="alert-box alert-error">${err.message}</div>`;
+        container.innerHTML = `<div class="alert-box alert-error">${escapeHtml(err.message)}</div>`;
       }
     }
 
-    document.getElementById("addUserForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById("addUserBtn");
-      btn.disabled = true;
-      btn.textContent = "Menyimpan...";
-      usersAlert.className = "alert-box hidden";
+    function renderUsersList() {
+      const container = document.getElementById("usersListContainer");
+      if (cachedUsers.length === 0) {
+        container.innerHTML = `<div style="font-size:0.85rem;color:var(--muted);">Belum ada akun terdaftar.</div>`;
+        return;
+      }
 
-      try {
-        await postToSheet({
-          action: "addUser",
-          username: document.getElementById("newAccUser").value.trim(),
-          password: document.getElementById("newAccPass").value.trim(),
-          name: document.getElementById("newAccName").value.trim(),
-          role: document.getElementById("newAccRole").value,
-          email: document.getElementById("newAccEmail").value.trim()
-        });
-        e.target.reset();
-        usersAlert.textContent = "Akun berhasil ditambahkan!";
-        usersAlert.className = "alert-box alert-success";
-        loadUsersList();
-      } catch (err) {
-        usersAlert.textContent = err.message;
-        usersAlert.className = "alert-box alert-error";
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "Tambah Akun";
+      container.innerHTML = cachedUsers.map(u => {
+        const isEditing = editingUsername === u.username;
+        if (isEditing) {
+          return `
+            <div data-edit-box="${escapeHtml(u.username)}" style="padding:10px;border:1px solid #93c5fd;background:#eff6ff;border-radius:7px;font-size:0.82rem;">
+              <div style="font-weight:700;margin-bottom:6px;color:#1e3a8a;">Edit Akun: @${escapeHtml(u.username)}</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+                <input type="text" class="u-edit-name" value="${escapeHtml(u.name)}" placeholder="Nama Lengkap" />
+                <input type="text" class="u-edit-pass" value="${escapeHtml(u.password)}" placeholder="Password" />
+                <select class="u-edit-role">
+                  <option value="creator" ${u.role === "creator" ? "selected" : ""}>Creator</option>
+                  <option value="approver" ${u.role === "approver" ? "selected" : ""}>Approver</option>
+                  <option value="superadmin" ${u.role === "superadmin" ? "selected" : ""}>Super Admin</option>
+                </select>
+                <input type="email" class="u-edit-email" value="${escapeHtml(u.email)}" placeholder="Email" />
+              </div>
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="btn-edit" style="padding:4px 10px;font-size:0.76rem;" data-save-user="${escapeHtml(u.username)}">Simpan</button>
+                <button type="button" class="btn-secondary" style="padding:4px 10px;font-size:0.76rem;" data-cancel-user="1">Batal</button>
+              </div>
+            </div>
+          `;
+        }
+
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:0.83rem;">
+            <div>
+              <strong>${escapeHtml(u.name)}</strong> (@${escapeHtml(u.username)}) <span class="role-tag">${escapeHtml(u.role)}</span>
+              <div style="color:var(--muted);font-size:0.78rem;">${escapeHtml(u.email || "Tanpa email")} • Pass: <code>${escapeHtml(u.password)}</code></div>
+            </div>
+            <div style="display:flex;gap:4px;flex-shrink:0;">
+              <button type="button" class="btn-secondary" style="padding:4px 8px;font-size:0.75rem;" data-edit-user="${escapeHtml(u.username)}">Ubah</button>
+              ${u.username !== currentUser.username ? `
+                <button type="button" class="btn-logout" style="padding:4px 8px;font-size:0.75rem;" data-del-user="${escapeHtml(u.username)}">Hapus</button>
+              ` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    document.getElementById("usersListContainer").addEventListener("click", async (e) => {
+      const editBtn = e.target.closest("button[data-edit-user]");
+      if (editBtn) {
+        editingUsername = editBtn.dataset.editUser;
+        renderUsersList();
+        return;
+      }
+
+      if (e.target.closest("button[data-cancel-user]")) {
+        editingUsername = null;
+        renderUsersList();
+        return;
+      }
+
+      const saveBtn = e.target.closest("button[data-save-user]");
+      if (saveBtn) {
+        const username = saveBtn.dataset.saveUser;
+        const box = saveBtn.closest("[data-edit-box]");
+        const name = box.querySelector(".u-edit-name").value.trim();
+        const password = box.querySelector(".u-edit-pass").value.trim();
+        const role = box.querySelector(".u-edit-role").value;
+        const email = box.querySelector(".u-edit-email").value.trim();
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Menyimpan...";
+        try {
+          await postToSheet({ action: "updateUser", username, name, password, role, email });
+          editingUsername = null;
+          usersAlert.textContent = `Akun @${username} berhasil diperbarui!`;
+          usersAlert.className = "alert-box alert-success";
+          loadUsersList();
+        } catch (err) {
+          usersAlert.textContent = err.message;
+          usersAlert.className = "alert-box alert-error";
+          saveBtn.disabled = false;
+          saveBtn.textContent = "Simpan";
+        }
+        return;
+      }
+
+      const delBtn = e.target.closest("button[data-del-user]");
+      if (delBtn) {
+        const username = delBtn.dataset.delUser;
+        delBtn.disabled = true;
+        delBtn.textContent = "...";
+        try {
+          await postToSheet({ action: "deleteUser", username });
+          usersAlert.textContent = `Akun @${username} telah dihapus.`;
+          usersAlert.className = "alert-box alert-success";
+          loadUsersList();
+        } catch (err) {
+          usersAlert.textContent = err.message;
+          usersAlert.className = "alert-box alert-error";
+          delBtn.disabled = false;
+          delBtn.textContent = "Hapus";
+        }
       }
     });
 
