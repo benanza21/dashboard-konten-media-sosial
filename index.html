@@ -166,14 +166,47 @@
     .stat-card .label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
     .stat-card .value { font-size: 1.75rem; font-weight: 700; margin-top: 4px; }
 
-    .main-grid {
+.main-grid {
       display: grid;
       grid-template-columns: 340px 1fr;
       gap: 20px;
-      align-items: start;
+      align-items: stretch;
     }
     @media (max-width: 860px) {
       .main-grid { grid-template-columns: 1fr; }
+    }
+
+    .main-grid > main.card {
+      display: flex;
+      flex-direction: column;
+      max-height: 680px;
+    }
+
+    .submission-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      flex: 1;
+      padding-right: 4px;
+    }
+
+    .pagination-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 0.83rem;
+      color: var(--muted);
+    }
+
+    .pagination-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .card {
@@ -480,8 +513,8 @@
             <option value="revision">Perlu Revisi</option>
           </select>
         </div>
-
         <div class="submission-list" id="submissionList"></div>
+        <div class="pagination-bar" id="paginationBar"></div>
       </main>
     </div>
   </div>
@@ -495,6 +528,8 @@
     let pendingDeleteId = null;
     let activeRevisionId = null;
     let activeEditId = null;
+    let currentPage = 1;
+    const ITEMS_PER_PAGE = 5;
 
     function initApp() {
       const saved = localStorage.getItem(SESSION_KEY);
@@ -827,23 +862,162 @@
     }
 
     function renderList() {
-      const query = document.getElementById("searchInput").value.trim().toLowerCase();
-      const statusFilter = document.getElementById("statusFilter").value;
-      const listEl = document.getElementById("submissionList");
-      const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
+      function renderList() {
+   const query = document.getElementById("searchInput").value.trim().toLowerCase();
+   const statusFilter = document.getElementById("statusFilter").value;
+   const listEl = document.getElementById("submissionList");
+   const paginationEl = document.getElementById("paginationBar");
+   const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
 
-      const filtered = submissions.filter(item => {
-        const matchStatus = statusFilter === "all" || item.status === statusFilter;
-        const matchQuery =
-          !query ||
-          item.title.toLowerCase().includes(query) ||
-          item.platform.toLowerCase().includes(query) ||
-          item.creator.toLowerCase().includes(query) ||
-          (item.approver && item.approver.toLowerCase().includes(query));
-        return matchStatus && matchQuery;
-      });
+   const filtered = submissions.filter(item => {
+     const matchStatus = statusFilter === "all" || item.status === statusFilter;
+     const matchQuery =
+       !query ||
+       item.title.toLowerCase().includes(query) ||
+       item.platform.toLowerCase().includes(query) ||
+       item.creator.toLowerCase().includes(query) ||
+       (item.approver && item.approver.toLowerCase().includes(query));
+     return matchStatus && matchQuery;
+   });
 
-      updateStats();
+   updateStats();
+
+   if (filtered.length === 0) {
+     listEl.innerHTML = `<div class="empty-state">Tidak ada pengajuan konten yang cocok dengan filter saat ini.</div>`;
+     paginationEl.innerHTML = "";
+     return;
+   }
+
+   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+   if (currentPage > totalPages) currentPage = totalPages;
+   if (currentPage < 1) currentPage = 1;
+
+   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+   const paginatedItems = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+   const platforms = ["Instagram", "TikTok", "YouTube", "LinkedIn", "X / Twitter"];
+
+   listEl.innerHTML = paginatedItems.map((item, idx) => {
+     const itemNumber = startIndex + idx + 1;
+     const safeUrl = sanitizeUrl(item.assetUrl);
+     const isConfirmingDelete = pendingDeleteId === item.id;
+     const isEditingRevision = activeRevisionId === item.id;
+     const isEditingContent = activeEditId === item.id;
+     const hasAuditInfo = item.approver || item.approvedAt;
+     const canCreatorEdit = item.status === "revision" && (currentUser.role === "creator" || currentUser.name === item.creator);
+
+     return `
+       <article class="submission-item" data-id="${escapeHtml(item.id)}">
+         <div class="item-header">
+           <div class="item-title"><span style="color:var(--primary);margin-right:6px;">#${itemNumber}</span>${escapeHtml(item.title)}</div>
+           ${getStatusBadge(item.status)}
+         </div>
+         <div class="meta">
+           <strong>${escapeHtml(item.platform)}</strong> • Rencana tayang: <strong>${escapeHtml(item.publishDate)}</strong> • Pengaju: ${escapeHtml(item.creator)}
+         </div>
+         <div class="caption-box">${escapeHtml(item.caption)}</div>
+         ${safeUrl ? `<a class="asset-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">Lihat Aset / Preview Konten ↗</a>` : ""}
+
+         ${item.status === "approved" && hasAuditInfo ? `
+           <div class="approval-log">
+             <strong>Akun Penyetuju:</strong> ${escapeHtml(item.approver || "-")} • <strong>Waktu:</strong> ${escapeHtml(item.approvedAt || "-")}
+           </div>
+         ` : ""}
+
+         ${item.status === "revision" ? `
+           <div class="revision-note">
+             <div><strong>Catatan Revisi:</strong> ${escapeHtml(item.revisionNote || "-")}</div>
+             ${hasAuditInfo ? `<div style="margin-top:4px;font-size:0.78rem;opacity:0.9;">Diminta oleh <strong>${escapeHtml(item.approver || "-")}</strong> pada ${escapeHtml(item.approvedAt || "-")}</div>` : ""}
+           </div>
+         ` : ""}
+
+         ${isEditingContent ? `
+           <div class="inline-edit-box">
+             <h4>Perbaiki Konten & Ajukan Ulang</h4>
+             <div class="form-group">
+               <label>Judul / Topik</label>
+               <input type="text" class="edit-title" value="${escapeHtml(item.title)}" />
+             </div>
+             <div class="form-group">
+               <label>Platform</label>
+               <select class="edit-platform">
+                 ${platforms.map(p => `<option value="${p}" ${item.platform === p ? "selected" : ""}>${p}</option>`).join("")}
+               </select>
+             </div>
+             <div class="form-group">
+               <label>Rencana Tanggal Tayang</label>
+               <input type="date" class="edit-date" value="${escapeHtml(item.publishDate)}" />
+             </div>
+             <div class="form-group">
+               <label>Tautan Desain / Video</label>
+               <input type="url" class="edit-url" value="${escapeHtml(item.assetUrl || "")}" />
+             </div>
+             <div class="form-group">
+               <label>Caption / Brief</label>
+               <textarea class="edit-caption">${escapeHtml(item.caption)}</textarea>
+             </div>
+             <div style="display:flex;gap:8px;">
+               <button type="button" class="btn-edit" data-action="save-edit">Simpan & Ajukan Ulang</button>
+               <button type="button" class="btn-delete" style="margin-left:0;" data-action="cancel-edit">Batal</button>
+             </div>
+           </div>
+         ` : ""}
+
+         ${isApprover && isEditingRevision ? `
+           <div style="margin: 10px 0; padding: 10px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 7px;">
+             <label style="font-size: 0.8rem; margin-bottom: 4px;">Catatan Revisi:</label>
+             <input type="text" class="rev-input" value="${escapeHtml(item.revisionNote || "")}" placeholder="Tulis bagian yang perlu diperbaiki..." style="margin-bottom: 8px;" />
+             <div style="display: flex; gap: 6px;">
+               <button type="button" class="btn-revise" data-action="save-revise">Simpan Revisi</button>
+               <button type="button" class="btn-delete" style="margin-left: 0;" data-action="cancel-revise">Batal</button>
+             </div>
+           </div>
+         ` : ""}
+
+         <div class="actions">
+           ${canCreatorEdit && !isEditingContent ? `
+             <button type="button" class="btn-edit" data-action="edit-content">Edit & Ajukan Ulang</button>
+           ` : ""}
+
+           ${isApprover ? `
+             <button type="button" class="btn-approve" data-action="approve">Setujui</button>
+             <button type="button" class="btn-revise" data-action="revise">Minta Revisi</button>
+             ${isConfirmingDelete ? `
+               <button type="button" class="btn-delete" style="background:#dc2626;color:#fff;" data-action="confirm-delete">Ya, Hapus Permanen</button>
+               <button type="button" class="btn-delete" style="margin-left:0;" data-action="cancel-delete">Batal</button>
+             ` : `
+               <button type="button" class="btn-delete" data-action="delete">Hapus</button>
+             `}
+           ` : ""}
+         </div>
+       </article>
+     `;
+   }).join("");
+
+   paginationEl.innerHTML = `
+     <span>Menampilkan <strong>${startIndex + 1}–${Math.min(startIndex + ITEMS_PER_PAGE, filtered.length)}</strong> dari <strong>${filtered.length}</strong> pengajuan</span>
+     <div class="pagination-controls">
+       <button type="button" class="btn-secondary" id="prevPageBtn" ${currentPage === 1 ? "disabled" : ""}>← Sebelumnya</button>
+       <span style="padding:0 6px;font-weight:600;color:var(--text);">Hal ${currentPage} / ${totalPages}</span>
+       <button type="button" class="btn-secondary" id="nextPageBtn" ${currentPage === totalPages ? "disabled" : ""}>Berikutnya →</button>
+     </div>
+   `;
+
+   document.getElementById("prevPageBtn").addEventListener("click", () => {
+     if (currentPage > 1) {
+       currentPage--;
+       renderList();
+       listEl.scrollTop = 0;
+     }
+   });
+
+   document.getElementById("nextPageBtn").addEventListener("click", () => {
+     if (currentPage < totalPages) {
+       currentPage++;
+       renderList();
+       listEl.scrollTop = 0;
+     }
+   });
+ }
 
       if (filtered.length === 0) {
         listEl.innerHTML = `<div class="empty-state">Tidak ada pengajuan konten yang cocok dengan filter saat ini.</div>`;
@@ -1138,8 +1312,8 @@
 
     document.getElementById("exportBtn").addEventListener("click", exportToCSV);
     document.getElementById("refreshBtn").addEventListener("click", fetchSubmissions);
-    document.getElementById("searchInput").addEventListener("input", renderList);
-    document.getElementById("statusFilter").addEventListener("change", renderList);
+    document.getElementById("searchInput").addEventListener("input", () => { currentPage = 1; renderList(); });
+    document.getElementById("statusFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
 
     initApp();
   </script>
