@@ -172,60 +172,18 @@
       gap: 20px;
       align-items: stretch;
     }
-    @media (max-width: 860px) {
-      .main-grid { grid-template-columns: 1fr; }
-    }
 
     .main-grid > main.card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .right-card-inner {
+      position: absolute;
+      inset: 20px;
       display: flex;
       flex-direction: column;
-      max-height: 1080px;
     }
-
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px;
-    }
-    .card h2 { font-size: 1.1rem; margin-bottom: 14px; }
-
-    .form-group { margin-bottom: 12px; }
-    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
-
-    input, select, textarea {
-      width: 100%;
-      padding: 9px 11px;
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      font-size: 0.9rem;
-      background: #fff;
-      color: var(--text);
-    }
-    textarea { min-height: 76px; resize: vertical; }
-
-    button {
-      cursor: pointer;
-      border: none;
-      border-radius: 7px;
-      font-weight: 600;
-      font-size: 0.85rem;
-      transition: background-color 0.15s ease, opacity 0.15s ease;
-    }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
-
-    .btn-primary {
-      width: 100%;
-      padding: 10px 14px;
-      background: var(--primary);
-      color: #fff;
-      margin-top: 4px;
-    }
-    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
-
-    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
-    .toolbar input { flex: 1 1 200px; }
-    .toolbar select { flex: 0 1 180px; }
 
     .submission-list {
       display: flex;
@@ -234,6 +192,13 @@
       overflow-y: auto;
       flex: 1;
       padding-right: 4px;
+    }
+
+    @media (max-width: 860px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .main-grid > main.card { position: static; overflow: visible; }
+      .right-card-inner { position: static; }
+      .submission-list { max-height: 600px; }
     }
 
     .pagination-bar {
@@ -598,19 +563,21 @@
       </aside>
 
       <main class="card">
-        <h2>Daftar Pengajuan Konten</h2>
-        <div class="toolbar">
-          <input type="search" id="searchInput" placeholder="Cari judul, platform, pengaju, atau penyetuju..." />
-          <select id="statusFilter">
-            <option value="all">Semua Status</option>
-            <option value="pending">Menunggu Review</option>
-            <option value="approved">Disetujui</option>
-            <option value="revision">Perlu Revisi</option>
-          </select>
-        </div>
+        <div class="right-card-inner">
+          <h2>Daftar Pengajuan Konten</h2>
+          <div class="toolbar">
+            <input type="search" id="searchInput" placeholder="Cari judul, platform, pengaju, atau penyetuju..." />
+            <select id="statusFilter">
+              <option value="all">Semua Status</option>
+              <option value="pending">Menunggu Review</option>
+              <option value="approved">Disetujui</option>
+              <option value="revision">Perlu Revisi</option>
+            </select>
+          </div>
 
-        <div class="submission-list" id="submissionList"></div>
-        <div class="pagination-bar" id="paginationBar"></div>
+          <div class="submission-list" id="submissionList"></div>
+          <div class="pagination-bar" id="paginationBar"></div>
+        </div>
       </main>
     </div>
   </div>
