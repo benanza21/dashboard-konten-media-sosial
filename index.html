@@ -263,7 +263,6 @@
 
     .item-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
     .item-title { font-weight: 700; font-size: 1rem; }
-    
     .meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; }
 
     .badge { padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
@@ -957,38 +956,6 @@
               </div>
             ` : ""}
 
-        return `
-          <article class="submission-item" data-id="${escapeHtml(item.id)}">
-            <div class="item-header">
-              <div class="item-title"><span style="color:var(--primary);margin-right:6px;">#${itemNumber}</span>${escapeHtml(item.title)}</div>
-              ${getStatusBadge(item.status)}
-            </div>
-            <div class="meta">
-              <strong>${escapeHtml(item.platform)}</strong> • Rencana tayang: <strong>${escapeHtml(item.publishDate)}</strong> • Pengaju: ${escapeHtml(item.creator)}
-            </div>
-            <div class="caption-box">${escapeHtml(item.caption)}</div>
-            ${safeUrl ? `<a class="asset-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">Lihat Aset / Preview Konten ↗</a>` : ""}
-
-            ${item.status === "approved" && hasAuditInfo ? `
-              <div class="approval-log">
-                <strong>Akun Penyetuju:</strong> ${escapeHtml(item.approver || "-")} • <strong>Waktu:</strong> ${escapeHtml(item.approvedAt || "-")}
-              </div>
-            ` : ""}
-          ${item.status === "revision" && revCount > 0
-             ? `<span class="badge revision">Perlu Revisi (ke-${revCount})</span>`
-             : getStatusBadge(item.status)}
-             
-         ${item.status === "revision" ? `
-           <div class="revision-note">
-             <div><strong>Catatan Revisi${revCount > 0 ? ` ke-${revCount}` : ""}:</strong> ${escapeHtml(item.revisionNote || "-")}</div>
-             ${hasAuditInfo ? `<div style="margin-top:4px;font-size:0.78rem;opacity:0.9;">Diminta oleh <strong>${escapeHtml(item.approver || "-")}</strong> pada ${escapeHtml(item.approvedAt || "-")}</div>` : ""}
-           </div>
-         ` : ""}
-        ${item.status === "approved" && hasAuditInfo ? `
-           <div class="approval-log">
-             <strong>Akun Penyetuju:</strong> ${escapeHtml(item.approver || "-")} • <strong>Waktu:</strong> ${escapeHtml(item.approvedAt || "-")}${revCount > 0 ? ` • <em>(Disetujui setelah ${revCount}x revisi)</em>` : ""}
-           </div>
-         ` : ""}
             ${isEditingContent ? `
               <div class="inline-edit-box">
                 <h4>Perbaiki Konten & Ajukan Ulang</h4>
@@ -1226,7 +1193,8 @@
       const headers = [
         "ID", "Judul Konten", "Platform", "Rencana Tayang",
         "Pengaju", "Tautan Aset", "Caption", "Status",
-        "Catatan Revisi", "Akun Penyetuju", "Waktu Persetujuan", "Jumlah Revisi"
+        "Catatan Revisi", "Akun Penyetuju", "Waktu Persetujuan",
+        "Jumlah Revisi"
       ];
 
       const escapeCsv = (val) => {
@@ -1245,7 +1213,7 @@
         item.status === "approved" ? "Disetujui" : item.status === "revision" ? "Perlu Revisi" : "Menunggu Review",
         item.revisionNote,
         item.approver,
-        item.approvedAt
+        item.approvedAt,
         item.revisionCount || 0
       ].map(escapeCsv).join(";"));
 
