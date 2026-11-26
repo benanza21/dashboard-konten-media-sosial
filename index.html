@@ -174,8 +174,9 @@
     }
 
     .main-grid > main.card {
-      position: relative;
-      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
 
     .right-card-inner {
@@ -660,6 +661,7 @@
       }
 
       fetchSubmissions();
+      syncPanelHeights();
     }
 
     function setSyncStatus(text) {
@@ -983,6 +985,8 @@
    if (btn) switchStatsTab(btn.dataset.statTab);
  });
 
+    document.getElementById("approverStatsList").classList.toggle("hidden", tabName !== "approver");
+ syncPanelHeights();
  function buildStatRows(groups, totalCount, mode) {
    if (groups.length === 0) {
      return `<div style="font-size:0.83rem;color:var(--muted);text-align:center;padding:12px 0;">Belum ada data tercatat.</div>`;
@@ -1081,6 +1085,7 @@
           item.creator.toLowerCase().includes(query) ||
           (item.approver && item.approver.toLowerCase().includes(query));
         return matchStatus && matchQuery;
+        syncPanelHeights();
       });
 
       updateStats();
@@ -1419,7 +1424,24 @@
     document.getElementById("refreshBtn").addEventListener("click", fetchSubmissions);
     document.getElementById("searchInput").addEventListener("input", () => { currentPage = 1; renderList(); });
     document.getElementById("statusFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+function syncPanelHeights() {
+   const asideEl = document.querySelector(".main-grid > aside.card");
+   const mainEl = document.querySelector(".main-grid > main.card");
+   if (!asideEl || !mainEl) return;
 
+   if (window.innerWidth <= 860) {
+     mainEl.style.height = "auto";
+     return;
+   }
+
+   mainEl.style.height = "auto";
+   const targetHeight = asideEl.offsetHeight;
+   if (targetHeight > 0) {
+     mainEl.style.height = targetHeight + "px";
+   }
+ }
+
+ window.addEventListener("resize", syncPanelHeights);
     initApp();
   </script>
 </body>
