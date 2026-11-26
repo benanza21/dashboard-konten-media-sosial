@@ -325,4 +325,1015 @@
     .btn-revise:hover:not(:disabled) { background: #b45309; }
     .btn-edit { background: var(--primary); color: #fff; padding: 7px 12px; }
     .btn-edit:hover:not(:disabled) { background: var(--primary-hover); }
-    .btn-delete { background: #e2e8f0
+    .btn-delete { background: #e2e8f0; color: #334155; padding: 7px 12px; margin-left: auto; }
+    .btn-delete:hover:not(:disabled) { background: #cbd5e1; }
+
+    .empty-state { text-align: center; padding: 36px 16px; color: var(--muted); font-size: 0.9rem; }
+
+    .platform-stats-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .platform-stat-row {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .platform-stat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+    }
+
+    .platform-stat-count {
+      font-weight: 700;
+      color: var(--primary);
+      background: #eff6ff;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+    }
+
+    .platform-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: var(--bg);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .platform-bar-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HALAMAN LOGIN -->
+  <div id="loginSection" class="login-wrapper">
+    <h1>LOGIN DASHBOARD PERSETUJUAN KONTEN</h1>
+    <p>Masuk menggunakan akun yang telah terdaftar.</p>
+    <div id="loginError" class="alert-box alert-error hidden"></div>
+    <form id="loginForm" onsubmit="return false;">
+      <div class="form-group">
+        <label for="loginUsername">Username</label>
+        <input type="text" id="loginUsername" placeholder="Masukkan Username" required />
+      </div>
+      <div class="form-group">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" placeholder="Masukkan Password" required />
+      </div>
+      <button type="button" class="btn-primary" id="loginBtn">Masuk</button>
+    </form>
+  </div>
+
+  <!-- MODAL UBAH PASSWORD -->
+  <div id="passwordModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Ubah Password</h2>
+        <button type="button" class="btn-secondary" id="closePwdModalBtn">Tutup</button>
+      </div>
+      <div id="pwdAlert" class="alert-box hidden"></div>
+      <form id="changePasswordForm">
+        <div class="form-group">
+          <label for="oldPassword">Password Lama</label>
+          <input type="password" id="oldPassword" required />
+        </div>
+        <div class="form-group">
+          <label for="newPassword">Password Baru (min. 4 karakter)</label>
+          <input type="password" id="newPassword" minlength="4" required />
+        </div>
+        <div class="form-group">
+          <label for="confirmPassword">Ulangi Password Baru</label>
+          <input type="password" id="confirmPassword" minlength="4" required />
+        </div>
+        <button type="submit" class="btn-primary" id="savePwdBtn">Simpan Password</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL KELOLA AKUN (SUPER ADMIN) -->
+  <div id="usersModal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 540px;">
+      <div class="modal-header">
+        <h2>Kelola Akun Tim</h2>
+        <button type="button" class="btn-secondary" id="closeUsersModalBtn">Tutup</button>
+      </div>
+      <div id="usersAlert" class="alert-box hidden"></div>
+
+      <form id="addUserForm" style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="newAccUser" placeholder="contoh: kreator2" required />
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="text" id="newAccPass" placeholder="min. 4 karakter" required />
+          </div>
+          <div class="form-group">
+            <label>Nama Lengkap</label>
+            <input type="text" id="newAccName" placeholder="Budi (Desainer)" required />
+          </div>
+          <div class="form-group">
+            <label>Role</label>
+            <select id="newAccRole">
+              <option value="creator">Creator (Pengaju)</option>
+              <option value="approver">Approver (Penyetuju)</option>
+              <option value="superadmin">Super Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Email Notifikasi</label>
+          <input type="email" id="newAccEmail" placeholder="email@gmail.com" required />
+        </div>
+        <button type="submit" class="btn-primary" id="addUserBtn">Tambah Akun</button>
+      </form>
+
+      <div id="usersListContainer" style="max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
+    </div>
+  </div>
+
+  <!-- HALAMAN DASHBOARD -->
+  <div id="dashboardSection" class="container hidden">
+    <header>
+      <div>
+        <h1>Dashboard Persetujuan Konten</h1>
+        <p>Tersinkronisasi dengan Google Sheets</p>
+      </div>
+      <div class="header-controls">
+        <div class="user-badge" id="userBadge"></div>
+        <span class="sync-status" id="syncStatus">Memuat data...</span>
+        <button type="button" class="btn-secondary" id="refreshBtn">Muat Ulang</button>
+        <button type="button" class="btn-secondary" id="exportBtn">Ekspor Laporan (CSV)</button>
+        <button type="button" class="btn-secondary hidden" id="openUsersModalBtn">Kelola Akun</button>
+        <button type="button" class="btn-secondary" id="openPwdModalBtn">Ubah Password</button>
+        <button type="button" class="btn-logout" id="logoutBtn">Keluar</button>
+      </div>
+    </header>
+
+    <section class="stats-grid">
+      <div class="stat-card">
+        <div class="label">Total Pengajuan</div>
+        <div class="value" id="statTotal">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Menunggu Review</div>
+        <div class="value" id="statPending">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Disetujui</div>
+        <div class="value" id="statApproved">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Perlu Revisi</div>
+        <div class="value" id="statRevision">0</div>
+      </div>
+    </section>
+
+    <div class="main-grid">
+      <aside class="card">
+        <!-- TAMPILAN UNTUK CREATOR & SUPERADMIN -->
+        <div id="createContentBox">
+          <h2>Ajukan Konten Baru</h2>
+          <form id="contentForm">
+            <div class="form-group">
+              <label for="title">Judul / Topik Konten</label>
+              <input type="text" id="title" placeholder="Contoh: Tips Layanan Publik Cepat" required />
+            </div>
+
+            <div class="form-group">
+              <label for="platform">Platform</label>
+              <select id="platform" required>
+                <option value="Instagram">Instagram</option>
+                <option value="TikTok">TikTok</option>
+                <option value="YouTube">YouTube</option>
+                <option value="LinkedIn">LinkedIn</option>
+                <option value="X / Twitter">X / Twitter</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="publishDate">Rencana Tanggal Tayang</label>
+              <input type="date" id="publishDate" required />
+            </div>
+
+            <div class="form-group">
+              <label for="creator">Pengaju / Kreator</label>
+              <input type="text" id="creator" readonly style="background: #f8fafc; color: #475569;" />
+            </div>
+
+            <div class="form-group">
+              <label for="assetUrl">Tautan Desain / Video (Opsional)</label>
+              <input type="url" id="assetUrl" placeholder="https://drive.google.com/..." />
+            </div>
+
+            <div class="form-group">
+              <label for="caption">Caption / Brief</label>
+              <textarea id="caption" placeholder="Tulis naskah caption, CTA, atau catatan singkat..." required></textarea>
+            </div>
+
+            <button type="submit" class="btn-primary" id="submitBtn">Kirim Pengajuan</button>
+          </form>
+        </div>
+
+        <!-- TAMPILAN KHUSUS APPROVER -->
+        <div id="platformStatsBox" class="hidden">
+          <h2>Statistik per Platform</h2>
+          <p style="font-size: 0.83rem; color: var(--muted); margin-bottom: 16px;">
+            Distribusi pengajuan konten berdasarkan kanal media sosial.
+          </p>
+          <div class="platform-stats-list" id="platformStatsList"></div>
+        </div>
+      </aside>
+
+      <main class="card">
+        <h2>Daftar Pengajuan Konten</h2>
+        <div class="toolbar">
+          <input type="search" id="searchInput" placeholder="Cari judul, platform, pengaju, atau penyetuju..." />
+          <select id="statusFilter">
+            <option value="all">Semua Status</option>
+            <option value="pending">Menunggu Review</option>
+            <option value="approved">Disetujui</option>
+            <option value="revision">Perlu Revisi</option>
+          </select>
+        </div>
+
+        <div class="submission-list" id="submissionList"></div>
+        <div class="pagination-bar" id="paginationBar"></div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // GANTI URL_WEB_APP_ANDA DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzzsHREWcPqfKqIAVGUijJg_Q0AXbzVZegG7CVxog6zw5OiqNnQNJL2HNmtJpUDdmxu/exec";
+    const SESSION_KEY = "socmed_user_session_v1";
+
+    let currentUser = null;
+    let submissions = [];
+    let pendingDeleteId = null;
+    let activeRevisionId = null;
+    let activeEditId = null;
+    let currentPage = 1;
+    const ITEMS_PER_PAGE = 5;
+
+    let cachedUsers = [];
+    let editingUsername = null;
+
+    function initApp() {
+      const saved = localStorage.getItem(SESSION_KEY);
+      if (saved) {
+        try {
+          currentUser = JSON.parse(saved);
+          showDashboard();
+          return;
+        } catch (err) {
+          localStorage.removeItem(SESSION_KEY);
+        }
+      }
+      showLogin();
+    }
+
+    function showLogin() {
+      document.getElementById("loginSection").classList.remove("hidden");
+      document.getElementById("dashboardSection").classList.add("hidden");
+    }
+
+    function showDashboard() {
+      document.getElementById("loginSection").classList.add("hidden");
+      document.getElementById("dashboardSection").classList.remove("hidden");
+      document.getElementById("userBadge").innerHTML =
+        `<strong>${escapeHtml(currentUser.name)}</strong> <span class="role-tag">${escapeHtml(currentUser.role)}</span>`;
+      document.getElementById("creator").value = currentUser.name;
+
+      const usersBtn = document.getElementById("openUsersModalBtn");
+      if (currentUser.role === "superadmin") {
+        usersBtn.classList.remove("hidden");
+      } else {
+        usersBtn.classList.add("hidden");
+      }
+
+      const createBox = document.getElementById("createContentBox");
+      const platformStatsBox = document.getElementById("platformStatsBox");
+      if (currentUser.role === "approver") {
+        createBox.classList.add("hidden");
+        platformStatsBox.classList.remove("hidden");
+      } else {
+        createBox.classList.remove("hidden");
+        platformStatsBox.classList.add("hidden");
+      }
+
+      fetchSubmissions();
+    }
+
+    function setSyncStatus(text) {
+      document.getElementById("syncStatus").textContent = text;
+    }
+
+    async function postToSheet(payload) {
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      if (!result.ok) throw new Error(result.error || "Terjadi kesalahan pada server");
+      return result;
+    }
+
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const loginBtn = document.getElementById("loginBtn");
+      const errorBox = document.getElementById("loginError");
+      const username = document.getElementById("loginUsername").value.trim();
+      const password = document.getElementById("loginPassword").value.trim();
+
+      if (!username || !password) {
+        errorBox.textContent = "Username dan password wajib diisi.";
+        errorBox.classList.remove("hidden");
+        return;
+      }
+
+      errorBox.classList.add("hidden");
+      loginBtn.disabled = true;
+      loginBtn.textContent = "Memeriksa...";
+
+      try {
+        const result = await postToSheet({ action: "login", username, password });
+        currentUser = result.user;
+        localStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
+        document.getElementById("loginForm").reset();
+        showDashboard();
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.classList.remove("hidden");
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = "Masuk";
+      }
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem(SESSION_KEY);
+      currentUser = null;
+      submissions = [];
+      showLogin();
+    });
+
+    const pwdModal = document.getElementById("passwordModal");
+    const pwdAlert = document.getElementById("pwdAlert");
+
+    document.getElementById("openPwdModalBtn").addEventListener("click", () => {
+      pwdAlert.classList.add("hidden");
+      document.getElementById("changePasswordForm").reset();
+      pwdModal.classList.remove("hidden");
+    });
+
+    document.getElementById("closePwdModalBtn").addEventListener("click", () => {
+      pwdModal.classList.add("hidden");
+    });
+
+    document.getElementById("changePasswordForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const oldPassword = document.getElementById("oldPassword").value.trim();
+      const newPassword = document.getElementById("newPassword").value.trim();
+      const confirmPassword = document.getElementById("confirmPassword").value.trim();
+      const saveBtn = document.getElementById("savePwdBtn");
+
+      pwdAlert.className = "alert-box";
+      if (newPassword !== confirmPassword) {
+        pwdAlert.textContent = "Konfirmasi password baru tidak cocok.";
+        pwdAlert.classList.add("alert-error");
+        return;
+      }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Menyimpan...";
+
+      try {
+        await postToSheet({
+          action: "changePassword",
+          username: currentUser.username,
+          oldPassword,
+          newPassword
+        });
+        pwdAlert.textContent = "Password berhasil diperbarui!";
+        pwdAlert.classList.add("alert-success");
+        e.target.reset();
+      } catch (err) {
+        pwdAlert.textContent = err.message;
+        pwdAlert.classList.add("alert-error");
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Simpan Password";
+      }
+    });
+
+    const usersModal = document.getElementById("usersModal");
+    const usersAlert = document.getElementById("usersAlert");
+
+    document.getElementById("openUsersModalBtn").addEventListener("click", () => {
+      usersAlert.classList.add("hidden");
+      editingUsername = null;
+      usersModal.classList.remove("hidden");
+      loadUsersList();
+    });
+
+    document.getElementById("closeUsersModalBtn").addEventListener("click", () => {
+      usersModal.classList.add("hidden");
+    });
+
+    async function loadUsersList() {
+      const container = document.getElementById("usersListContainer");
+      container.innerHTML = `<div style="font-size:0.85rem;color:var(--muted);">Memuat daftar akun...</div>`;
+      try {
+        const res = await postToSheet({ action: "getUsers" });
+        cachedUsers = res.users || [];
+        renderUsersList();
+      } catch (err) {
+        container.innerHTML = `<div class="alert-box alert-error">${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    function renderUsersList() {
+      const container = document.getElementById("usersListContainer");
+      if (cachedUsers.length === 0) {
+        container.innerHTML = `<div style="font-size:0.85rem;color:var(--muted);">Belum ada akun terdaftar.</div>`;
+        return;
+      }
+
+      container.innerHTML = cachedUsers.map(u => {
+        const isEditing = editingUsername === u.username;
+        if (isEditing) {
+          return `
+            <div data-edit-box="${escapeHtml(u.username)}" style="padding:10px;border:1px solid #93c5fd;background:#eff6ff;border-radius:7px;font-size:0.82rem;">
+              <div style="font-weight:700;margin-bottom:6px;color:#1e3a8a;">Edit Akun: @${escapeHtml(u.username)}</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+                <input type="text" class="u-edit-name" value="${escapeHtml(u.name)}" placeholder="Nama Lengkap" />
+                <input type="text" class="u-edit-pass" value="${escapeHtml(u.password)}" placeholder="Password" />
+                <select class="u-edit-role">
+                  <option value="creator" ${u.role === "creator" ? "selected" : ""}>Creator</option>
+                  <option value="approver" ${u.role === "approver" ? "selected" : ""}>Approver</option>
+                  <option value="superadmin" ${u.role === "superadmin" ? "selected" : ""}>Super Admin</option>
+                </select>
+                <input type="email" class="u-edit-email" value="${escapeHtml(u.email)}" placeholder="Email" />
+              </div>
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="btn-edit" style="padding:4px 10px;font-size:0.76rem;" data-save-user="${escapeHtml(u.username)}">Simpan</button>
+                <button type="button" class="btn-secondary" style="padding:4px 10px;font-size:0.76rem;" data-cancel-user="1">Batal</button>
+              </div>
+            </div>
+          `;
+        }
+
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:0.83rem;">
+            <div>
+              <strong>${escapeHtml(u.name)}</strong> (@${escapeHtml(u.username)}) <span class="role-tag">${escapeHtml(u.role)}</span>
+              <div style="color:var(--muted);font-size:0.78rem;">${escapeHtml(u.email || "Tanpa email")} • Pass: <code>${escapeHtml(u.password)}</code></div>
+            </div>
+            <div style="display:flex;gap:4px;flex-shrink:0;">
+              <button type="button" class="btn-secondary" style="padding:4px 8px;font-size:0.75rem;" data-edit-user="${escapeHtml(u.username)}">Ubah</button>
+              ${u.username !== currentUser.username ? `
+                <button type="button" class="btn-logout" style="padding:4px 8px;font-size:0.75rem;" data-del-user="${escapeHtml(u.username)}">Hapus</button>
+              ` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    document.getElementById("usersListContainer").addEventListener("click", async (e) => {
+      const editBtn = e.target.closest("button[data-edit-user]");
+      if (editBtn) {
+        editingUsername = editBtn.dataset.editUser;
+        renderUsersList();
+        return;
+      }
+
+      if (e.target.closest("button[data-cancel-user]")) {
+        editingUsername = null;
+        renderUsersList();
+        return;
+      }
+
+      const saveBtn = e.target.closest("button[data-save-user]");
+      if (saveBtn) {
+        const username = saveBtn.dataset.saveUser;
+        const box = saveBtn.closest("[data-edit-box]");
+        const name = box.querySelector(".u-edit-name").value.trim();
+        const password = box.querySelector(".u-edit-pass").value.trim();
+        const role = box.querySelector(".u-edit-role").value;
+        const email = box.querySelector(".u-edit-email").value.trim();
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Menyimpan...";
+        try {
+          await postToSheet({ action: "updateUser", username, name, password, role, email });
+          editingUsername = null;
+          usersAlert.textContent = `Akun @${username} berhasil diperbarui!`;
+          usersAlert.className = "alert-box alert-success";
+          loadUsersList();
+        } catch (err) {
+          usersAlert.textContent = err.message;
+          usersAlert.className = "alert-box alert-error";
+          saveBtn.disabled = false;
+          saveBtn.textContent = "Simpan";
+        }
+        return;
+      }
+
+      const delBtn = e.target.closest("button[data-del-user]");
+      if (delBtn) {
+        const username = delBtn.dataset.delUser;
+        delBtn.disabled = true;
+        delBtn.textContent = "...";
+        try {
+          await postToSheet({ action: "deleteUser", username });
+          usersAlert.textContent = `Akun @${username} telah dihapus.`;
+          usersAlert.className = "alert-box alert-success";
+          loadUsersList();
+        } catch (err) {
+          usersAlert.textContent = err.message;
+          usersAlert.className = "alert-box alert-error";
+          delBtn.disabled = false;
+          delBtn.textContent = "Hapus";
+        }
+      }
+    });
+
+    document.getElementById("addUserForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("addUserBtn");
+      btn.disabled = true;
+      btn.textContent = "Menyimpan...";
+      usersAlert.className = "alert-box hidden";
+
+      try {
+        await postToSheet({
+          action: "addUser",
+          username: document.getElementById("newAccUser").value.trim(),
+          password: document.getElementById("newAccPass").value.trim(),
+          name: document.getElementById("newAccName").value.trim(),
+          role: document.getElementById("newAccRole").value,
+          email: document.getElementById("newAccEmail").value.trim()
+        });
+        e.target.reset();
+        usersAlert.textContent = "Akun berhasil ditambahkan!";
+        usersAlert.className = "alert-box alert-success";
+        loadUsersList();
+      } catch (err) {
+        usersAlert.textContent = err.message;
+        usersAlert.className = "alert-box alert-error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Tambah Akun";
+      }
+    });
+
+    async function fetchSubmissions() {
+      setSyncStatus("Menyinkronkan...");
+      try {
+        const result = await postToSheet({ action: "getSubmissions" });
+        submissions = result.data || [];
+        renderList();
+        const now = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+        setSyncStatus(`Tersinkronisasi (${now})`);
+      } catch (err) {
+        console.error(err);
+        setSyncStatus("Gagal terhubung ke Google Sheets");
+        document.getElementById("submissionList").innerHTML =
+          `<div class="empty-state" style="color:#991b1b;">Detail Error: <strong>${escapeHtml(err.message)}</strong></div>`;
+      }
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str ?? "";
+      return div.innerHTML;
+    }
+
+    function sanitizeUrl(url) {
+      if (!url) return "";
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol === "https:" || parsed.protocol === "http:") return parsed.href;
+        return "";
+      } catch (err) {
+        return "";
+      }
+    }
+
+    function getStatusBadge(status) {
+      const map = {
+        pending: { text: "Menunggu Review", cls: "pending" },
+        approved: { text: "Disetujui", cls: "approved" },
+        revision: { text: "Perlu Revisi", cls: "revision" }
+      };
+      const info = map[status] || map.pending;
+      return `<span class="badge ${info.cls}">${info.text}</span>`;
+    }
+
+    function updateStats() {
+      const total = submissions.length;
+      document.getElementById("statTotal").textContent = total;
+      document.getElementById("statPending").textContent = submissions.filter(s => s.status === "pending").length;
+      document.getElementById("statApproved").textContent = submissions.filter(s => s.status === "approved").length;
+      document.getElementById("statRevision").textContent = submissions.filter(s => s.status === "revision").length;
+
+      const platformListEl = document.getElementById("platformStatsList");
+      if (platformListEl) {
+        const platforms = ["Instagram", "TikTok", "YouTube", "LinkedIn", "X / Twitter"];
+        platformListEl.innerHTML = platforms.map(p => {
+          const items = submissions.filter(s => s.platform === p);
+          const count = items.length;
+          const approved = items.filter(s => s.status === "approved").length;
+          const pending = items.filter(s => s.status === "pending").length;
+          const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+
+          return `
+            <div class="platform-stat-row">
+              <div class="platform-stat-header">
+                <strong>${escapeHtml(p)}</strong>
+                <span class="platform-stat-count">${count} konten (${pct}%)</span>
+              </div>
+              <div class="platform-bar-bg">
+                <div class="platform-bar-fill" style="width: ${pct}%;"></div>
+              </div>
+              <div style="font-size: 0.76rem; color: var(--muted);">
+                Disetujui: ${approved} • Menunggu: ${pending}
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+    }
+
+    function renderList() {
+      const query = document.getElementById("searchInput").value.trim().toLowerCase();
+      const statusFilter = document.getElementById("statusFilter").value;
+      const listEl = document.getElementById("submissionList");
+      const paginationEl = document.getElementById("paginationBar");
+      const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
+
+      const filtered = submissions.filter(item => {
+        const matchStatus = statusFilter === "all" || item.status === statusFilter;
+        const matchQuery =
+          !query ||
+          item.title.toLowerCase().includes(query) ||
+          item.platform.toLowerCase().includes(query) ||
+          item.creator.toLowerCase().includes(query) ||
+          (item.approver && item.approver.toLowerCase().includes(query));
+        return matchStatus && matchQuery;
+      });
+
+      updateStats();
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `<div class="empty-state">Tidak ada pengajuan konten yang cocok dengan filter saat ini.</div>`;
+        paginationEl.innerHTML = "";
+        return;
+      }
+
+      const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+
+      const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+      const paginatedItems = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+      const platforms = ["Instagram", "TikTok", "YouTube", "LinkedIn", "X / Twitter"];
+
+      listEl.innerHTML = paginatedItems.map((item, idx) => {
+        const itemNumber = startIndex + idx + 1;
+        const revCount = parseInt(item.revisionCount, 10) || 0;
+        const safeUrl = sanitizeUrl(item.assetUrl);
+        const isConfirmingDelete = pendingDeleteId === item.id;
+        const isEditingRevision = activeRevisionId === item.id;
+        const isEditingContent = activeEditId === item.id;
+        const hasAuditInfo = item.approver || item.approvedAt;
+        const canCreatorEdit = item.status === "revision" && (currentUser.role === "creator" || currentUser.name === item.creator);
+
+        return `
+          <article class="submission-item" data-id="${escapeHtml(item.id)}">
+            <div class="item-header">
+              <div class="item-title"><span style="color:var(--primary);margin-right:6px;">#${itemNumber}</span>${escapeHtml(item.title)}</div>
+              ${item.status === "revision" && revCount > 0
+                ? `<span class="badge revision">Perlu Revisi (ke-${revCount})</span>`
+                : getStatusBadge(item.status)}
+            </div>
+            <div class="meta">
+              <strong>${escapeHtml(item.platform)}</strong> • Rencana tayang: <strong>${escapeHtml(item.publishDate)}</strong> • Pengaju: ${escapeHtml(item.creator)}
+            </div>
+            <div class="caption-box">${escapeHtml(item.caption)}</div>
+            ${safeUrl ? `<a class="asset-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">Lihat Aset / Preview Konten ↗</a>` : ""}
+
+            ${item.status === "approved" && hasAuditInfo ? `
+              <div class="approval-log">
+                <strong>Akun Penyetuju:</strong> ${escapeHtml(item.approver || "-")} • <strong>Waktu:</strong> ${escapeHtml(item.approvedAt || "-")}${revCount > 0 ? ` • <em>(Disetujui setelah ${revCount}x revisi)</em>` : ""}
+              </div>
+            ` : ""}
+
+            ${item.status === "revision" ? `
+              <div class="revision-note">
+                <div><strong>Catatan Revisi${revCount > 0 ? ` ke-${revCount}` : ""}:</strong> ${escapeHtml(item.revisionNote || "-")}</div>
+                ${hasAuditInfo ? `<div style="margin-top:4px;font-size:0.78rem;opacity:0.9;">Diminta oleh <strong>${escapeHtml(item.approver || "-")}</strong> pada ${escapeHtml(item.approvedAt || "-")}</div>` : ""}
+              </div>
+            ` : ""}
+
+            ${isEditingContent ? `
+              <div class="inline-edit-box">
+                <h4>Perbaiki Konten & Ajukan Ulang</h4>
+                <div class="form-group">
+                  <label>Judul / Topik</label>
+                  <input type="text" class="edit-title" value="${escapeHtml(item.title)}" />
+                </div>
+                <div class="form-group">
+                  <label>Platform</label>
+                  <select class="edit-platform">
+                    ${platforms.map(p => `<option value="${p}" ${item.platform === p ? "selected" : ""}>${p}</option>`).join("")}
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Rencana Tanggal Tayang</label>
+                  <input type="date" class="edit-date" value="${escapeHtml(item.publishDate)}" />
+                </div>
+                <div class="form-group">
+                  <label>Tautan Desain / Video</label>
+                  <input type="url" class="edit-url" value="${escapeHtml(item.assetUrl || "")}" />
+                </div>
+                <div class="form-group">
+                  <label>Caption / Brief</label>
+                  <textarea class="edit-caption">${escapeHtml(item.caption)}</textarea>
+                </div>
+                <div style="display:flex;gap:8px;">
+                  <button type="button" class="btn-edit" data-action="save-edit">Simpan & Ajukan Ulang</button>
+                  <button type="button" class="btn-delete" style="margin-left:0;" data-action="cancel-edit">Batal</button>
+                </div>
+              </div>
+            ` : ""}
+
+            ${isApprover && isEditingRevision ? `
+              <div style="margin: 10px 0; padding: 10px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 7px;">
+                <label style="font-size: 0.8rem; margin-bottom: 4px;">Catatan Revisi:</label>
+                <input type="text" class="rev-input" value="${escapeHtml(item.revisionNote || "")}" placeholder="Tulis bagian yang perlu diperbaiki..." style="margin-bottom: 8px;" />
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" class="btn-revise" data-action="save-revise">Simpan Revisi</button>
+                  <button type="button" class="btn-delete" style="margin-left: 0;" data-action="cancel-revise">Batal</button>
+                </div>
+              </div>
+            ` : ""}
+
+            <div class="actions">
+              ${canCreatorEdit && !isEditingContent ? `
+                <button type="button" class="btn-edit" data-action="edit-content">Edit & Ajukan Ulang</button>
+              ` : ""}
+
+              ${isApprover ? `
+                <button type="button" class="btn-approve" data-action="approve">Setujui</button>
+                <button type="button" class="btn-revise" data-action="revise">Minta Revisi</button>
+                ${isConfirmingDelete ? `
+                  <button type="button" class="btn-delete" style="background:#dc2626;color:#fff;" data-action="confirm-delete">Ya, Hapus Permanen</button>
+                  <button type="button" class="btn-delete" style="margin-left:0;" data-action="cancel-delete">Batal</button>
+                ` : `
+                  <button type="button" class="btn-delete" data-action="delete">Hapus</button>
+                `}
+              ` : ""}
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      paginationEl.innerHTML = `
+        <span>Menampilkan <strong>${startIndex + 1}–${Math.min(startIndex + ITEMS_PER_PAGE, filtered.length)}</strong> dari <strong>${filtered.length}</strong> pengajuan</span>
+        <div class="pagination-controls">
+          <button type="button" class="btn-secondary" id="prevPageBtn" ${currentPage === 1 ? "disabled" : ""}>← Sebelumnya</button>
+          <span style="padding:0 6px;font-weight:600;color:var(--text);">Hal ${currentPage} / ${totalPages}</span>
+          <button type="button" class="btn-secondary" id="nextPageBtn" ${currentPage === totalPages ? "disabled" : ""}>Berikutnya →</button>
+        </div>
+      `;
+
+      document.getElementById("prevPageBtn").addEventListener("click", () => {
+        if (currentPage > 1) {
+          currentPage--;
+          renderList();
+          listEl.scrollTop = 0;
+        }
+      });
+
+      document.getElementById("nextPageBtn").addEventListener("click", () => {
+        if (currentPage < totalPages) {
+          currentPage++;
+          renderList();
+          listEl.scrollTop = 0;
+        }
+      });
+    }
+
+    document.getElementById("contentForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById("submitBtn");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Mengirim...";
+
+      const newItem = {
+        id: "ID-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
+        title: document.getElementById("title").value.trim(),
+        platform: document.getElementById("platform").value,
+        publishDate: document.getElementById("publishDate").value,
+        creator: currentUser.name,
+        creatorEmail: currentUser.email || "",
+        assetUrl: document.getElementById("assetUrl").value.trim(),
+        caption: document.getElementById("caption").value.trim(),
+        status: "pending",
+        revisionNote: ""
+      };
+
+      try {
+        setSyncStatus("Menyimpan pengajuan...");
+        await postToSheet({ action: "create", item: newItem });
+        e.target.reset();
+        document.getElementById("creator").value = currentUser.name;
+        currentPage = 1;
+        await fetchSubmissions();
+      } catch (err) {
+        setSyncStatus("Gagal menyimpan: " + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Kirim Pengajuan";
+      }
+    });
+
+    document.getElementById("submissionList").addEventListener("click", async (e) => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn || !currentUser) return;
+
+      const card = btn.closest(".submission-item");
+      const id = card?.dataset.id;
+      const action = btn.dataset.action;
+      if (!id) return;
+
+      try {
+        if (action === "edit-content") {
+          activeEditId = id;
+          activeRevisionId = null;
+          pendingDeleteId = null;
+          renderList();
+          return;
+        }
+        if (action === "cancel-edit") {
+          activeEditId = null;
+          renderList();
+          return;
+        }
+        if (action === "save-edit") {
+          const updatedItem = {
+            title: card.querySelector(".edit-title").value.trim(),
+            platform: card.querySelector(".edit-platform").value,
+            publishDate: card.querySelector(".edit-date").value,
+            assetUrl: card.querySelector(".edit-url").value.trim(),
+            caption: card.querySelector(".edit-caption").value.trim()
+          };
+          if (!updatedItem.title || !updatedItem.caption) {
+            setSyncStatus("Judul dan caption wajib diisi!");
+            return;
+          }
+          btn.disabled = true;
+          btn.textContent = "Menyimpan...";
+          activeEditId = null;
+          setSyncStatus("Mengajukan ulang konten...");
+          await postToSheet({ action: "editContent", id, item: updatedItem });
+          await fetchSubmissions();
+          return;
+        }
+
+        if (currentUser.role !== "approver" && currentUser.role !== "superadmin") return;
+
+        if (action === "approve") {
+          btn.disabled = true;
+          pendingDeleteId = null;
+          activeRevisionId = null;
+          setSyncStatus("Menyimpan persetujuan...");
+          await postToSheet({
+            action: "updateStatus",
+            id,
+            status: "approved",
+            revisionNote: "",
+            approver: currentUser.name
+          });
+          await fetchSubmissions();
+        } else if (action === "revise") {
+          activeRevisionId = id;
+          pendingDeleteId = null;
+          renderList();
+        } else if (action === "cancel-revise") {
+          activeRevisionId = null;
+          renderList();
+        } else if (action === "save-revise") {
+          const input = card.querySelector(".rev-input");
+          const trimmed = input ? input.value.trim() : "";
+          if (!trimmed) {
+            setSyncStatus("Catatan revisi wajib diisi!");
+            return;
+          }
+          btn.disabled = true;
+          activeRevisionId = null;
+          setSyncStatus("Menyimpan catatan revisi...");
+          await postToSheet({
+            action: "updateStatus",
+            id,
+            status: "revision",
+            revisionNote: trimmed,
+            approver: currentUser.name
+          });
+          await fetchSubmissions();
+        } else if (action === "delete") {
+          pendingDeleteId = id;
+          activeRevisionId = null;
+          renderList();
+        } else if (action === "cancel-delete") {
+          pendingDeleteId = null;
+          renderList();
+        } else if (action === "confirm-delete") {
+          btn.disabled = true;
+          btn.textContent = "Menghapus...";
+          pendingDeleteId = null;
+          setSyncStatus("Menghapus data...");
+          await postToSheet({ action: "delete", id });
+          await fetchSubmissions();
+        }
+      } catch (err) {
+        console.error(err);
+        btn.disabled = false;
+        setSyncStatus("Error: " + err.message);
+      }
+    });
+
+    function exportToCSV() {
+      if (!submissions || submissions.length === 0) {
+        setSyncStatus("Tidak ada data untuk diekspor.");
+        return;
+      }
+
+      const headers = [
+        "ID", "Judul Konten", "Platform", "Rencana Tayang",
+        "Pengaju", "Tautan Aset", "Caption", "Status",
+        "Catatan Revisi", "Akun Penyetuju", "Waktu Persetujuan",
+        "Jumlah Revisi"
+      ];
+
+      const escapeCsv = (val) => {
+        const str = String(val ?? "").replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const rows = submissions.map(item => [
+        item.id,
+        item.title,
+        item.platform,
+        item.publishDate,
+        item.creator,
+        item.assetUrl,
+        item.caption,
+        item.status === "approved" ? "Disetujui" : item.status === "revision" ? "Perlu Revisi" : "Menunggu Review",
+        item.revisionNote,
+        item.approver,
+        item.approvedAt,
+        item.revisionCount || 0
+      ].map(escapeCsv).join(";"));
+
+      const csvContent = "\uFEFF" + [headers.map(escapeCsv).join(";"), ...rows].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      const today = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.setAttribute("download", `laporan-konten-medsos-${today}.csv`);
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 200);
+    }
+
+    document.getElementById("exportBtn").addEventListener("click", exportToCSV);
+    document.getElementById("refreshBtn").addEventListener("click", fetchSubmissions);
+    document.getElementById("searchInput").addEventListener("input", () => { currentPage = 1; renderList(); });
+    document.getElementById("statusFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+
+    initApp();
+  </script>
+</body>
+</html>
