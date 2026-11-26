@@ -860,31 +860,30 @@
     }
 
     function renderList() {
-      function renderList() {
-   const query = document.getElementById("searchInput").value.trim().toLowerCase();
-   const statusFilter = document.getElementById("statusFilter").value;
-   const listEl = document.getElementById("submissionList");
-   const paginationEl = document.getElementById("paginationBar");
-   const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
+      const query = document.getElementById("searchInput").value.trim().toLowerCase();
+      const statusFilter = document.getElementById("statusFilter").value;
+      const listEl = document.getElementById("submissionList");
+      const paginationEl = document.getElementById("paginationBar");
+      const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
 
-   const filtered = submissions.filter(item => {
-     const matchStatus = statusFilter === "all" || item.status === statusFilter;
-     const matchQuery =
-       !query ||
-       item.title.toLowerCase().includes(query) ||
-       item.platform.toLowerCase().includes(query) ||
-       item.creator.toLowerCase().includes(query) ||
-       (item.approver && item.approver.toLowerCase().includes(query));
-     return matchStatus && matchQuery;
-   });
+      const filtered = submissions.filter(item => {
+        const matchStatus = statusFilter === "all" || item.status === statusFilter;
+        const matchQuery =
+          !query ||
+          item.title.toLowerCase().includes(query) ||
+          item.platform.toLowerCase().includes(query) ||
+          item.creator.toLowerCase().includes(query) ||
+          (item.approver && item.approver.toLowerCase().includes(query));
+        return matchStatus && matchQuery;
+      });
 
-   updateStats();
+      updateStats();
 
-   if (filtered.length === 0) {
-     listEl.innerHTML = `<div class="empty-state">Tidak ada pengajuan konten yang cocok dengan filter saat ini.</div>`;
-     paginationEl.innerHTML = "";
-     return;
-   }
+      if (filtered.length === 0) {
+        listEl.innerHTML = `<div class="empty-state">Tidak ada pengajuan konten yang cocok dengan filter saat ini.</div>`;
+        paginationEl.innerHTML = "";
+        return;
+      }
 
    const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
    if (currentPage > totalPages) currentPage = totalPages;
