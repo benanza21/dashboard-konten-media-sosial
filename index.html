@@ -4,7 +4,49 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard Persetujuan Konten Media Sosial</title>
-  <style>
+  .platform-stats-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .platform-stat-row {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .platform-stat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+    }
+
+    .platform-stat-count {
+      font-weight: 700;
+      color: var(--primary);
+      background: #eff6ff;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+    }
+
+    .platform-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: var(--bg);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .platform-bar-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+      <style>
     :root {
       --bg: #f4f6f9;
       --surface: #ffffff;
@@ -459,46 +501,58 @@
 
     <div class="main-grid">
       <aside class="card">
-        <h2>Ajukan Konten Baru</h2>
-        <form id="contentForm">
-          <div class="form-group">
-            <label for="title">Judul / Topik Konten</label>
-            <input type="text" id="title" placeholder="Contoh: Tips Layanan Publik Cepat" required />
-          </div>
+        <!-- TAMPILAN UNTUK CREATOR & SUPERADMIN -->
+        <div id="createContentBox">
+          <h2>Ajukan Konten Baru</h2>
+          <form id="contentForm">
+            <div class="form-group">
+              <label for="title">Judul / Topik Konten</label>
+              <input type="text" id="title" placeholder="Contoh: Tips Layanan Publik Cepat" required />
+            </div>
 
-          <div class="form-group">
-            <label for="platform">Platform</label>
-            <select id="platform" required>
-              <option value="Instagram">Instagram</option>
-              <option value="TikTok">TikTok</option>
-              <option value="YouTube">YouTube</option>
-              <option value="LinkedIn">LinkedIn</option>
-              <option value="X / Twitter">X / Twitter</option>
-            </select>
-          </div>
+            <div class="form-group">
+              <label for="platform">Platform</label>
+              <select id="platform" required>
+                <option value="Instagram">Instagram</option>
+                <option value="TikTok">TikTok</option>
+                <option value="YouTube">YouTube</option>
+                <option value="LinkedIn">LinkedIn</option>
+                <option value="X / Twitter">X / Twitter</option>
+              </select>
+            </div>
 
-          <div class="form-group">
-            <label for="publishDate">Rencana Tanggal Tayang</label>
-            <input type="date" id="publishDate" required />
-          </div>
+            <div class="form-group">
+              <label for="publishDate">Rencana Tanggal Tayang</label>
+              <input type="date" id="publishDate" required />
+            </div>
 
-          <div class="form-group">
-            <label for="creator">Pengaju / Kreator</label>
-            <input type="text" id="creator" readonly style="background: #f8fafc; color: #475569;" />
-          </div>
+            <div class="form-group">
+              <label for="creator">Pengaju / Kreator</label>
+              <input type="text" id="creator" readonly style="background: #f8fafc; color: #475569;" />
+            </div>
 
-          <div class="form-group">
-            <label for="assetUrl">Tautan Desain / Video (Opsional)</label>
-            <input type="url" id="assetUrl" placeholder="https://drive.google.com/..." />
-          </div>
+            <div class="form-group">
+              <label for="assetUrl">Tautan Desain / Video (Opsional)</label>
+              <input type="url" id="assetUrl" placeholder="https://drive.google.com/..." />
+            </div>
 
-          <div class="form-group">
-            <label for="caption">Caption / Brief</label>
-            <textarea id="caption" placeholder="Tulis naskah caption, CTA, atau catatan singkat..." required></textarea>
-          </div>
+            <div class="form-group">
+              <label for="caption">Caption / Brief</label>
+              <textarea id="caption" placeholder="Tulis naskah caption, CTA, atau catatan singkat..." required></textarea>
+            </div>
 
-          <button type="submit" class="btn-primary" id="submitBtn">Kirim Pengajuan</button>
-        </form>
+            <button type="submit" class="btn-primary" id="submitBtn">Kirim Pengajuan</button>
+          </form>
+        </div>
+
+        <!-- TAMPILAN KHUSUS APPROVER -->
+        <div id="platformStatsBox" class="hidden">
+          <h2>Statistik per Platform</h2>
+          <p style="font-size: 0.83rem; color: var(--muted); margin-bottom: 16px;">
+            Distribusi pengajuan konten berdasarkan kanal media sosial.
+          </p>
+          <div class="platform-stats-list" id="platformStatsList"></div>
+        </div>
       </aside>
 
       <main class="card">
@@ -561,6 +615,15 @@
         `<strong>${escapeHtml(currentUser.name)}</strong> <span class="role-tag">${escapeHtml(currentUser.role)}</span>`;
       document.getElementById("creator").value = currentUser.name;
 
+      const createBox = document.getElementById("createContentBox");
+      const platformStatsBox = document.getElementById("platformStatsBox");
+      if (currentUser.role === "approver") {
+      createBox.classList.add("hidden");
+      platformStatsBox.classList.remove("hidden");
+       } else {
+     createBox.classList.remove("hidden");
+     platformStatsBox.classList.add("hidden");
+      }
       const usersBtn = document.getElementById("openUsersModalBtn");
       if (currentUser.role === "superadmin") {
         usersBtn.classList.remove("hidden");
@@ -879,12 +942,39 @@
     }
 
     function updateStats() {
-      document.getElementById("statTotal").textContent = submissions.length;
-      document.getElementById("statPending").textContent = submissions.filter(s => s.status === "pending").length;
-      document.getElementById("statApproved").textContent = submissions.filter(s => s.status === "approved").length;
-      document.getElementById("statRevision").textContent = submissions.filter(s => s.status === "revision").length;
-    }
+   const total = submissions.length;
+   document.getElementById("statTotal").textContent = total;
+   document.getElementById("statPending").textContent = submissions.filter(s => s.status === "pending").length;
+   document.getElementById("statApproved").textContent = submissions.filter(s => s.status === "approved").length;
+   document.getElementById("statRevision").textContent = submissions.filter(s => s.status === "revision").length;
 
+   const platformListEl = document.getElementById("platformStatsList");
+   if (platformListEl) {
+     const platforms = ["Instagram", "TikTok", "YouTube", "LinkedIn", "X / Twitter"];
+     platformListEl.innerHTML = platforms.map(p => {
+       const items = submissions.filter(s => s.platform === p);
+       const count = items.length;
+       const approved = items.filter(s => s.status === "approved").length;
+       const pending = items.filter(s => s.status === "pending").length;
+       const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+
+       return `
+         <div class="platform-stat-row">
+           <div class="platform-stat-header">
+             <strong>${escapeHtml(p)}</strong>
+             <span class="platform-stat-count">${count} konten (${pct}%)</span>
+           </div>
+           <div class="platform-bar-bg">
+             <div class="platform-bar-fill" style="width: ${pct}%;"></div>
+           </div>
+           <div style="font-size: 0.76rem; color: var(--muted);">
+             Disetujui: ${approved} • Menunggu: ${pending}
+           </div>
+         </div>
+       `;
+     }).join("");
+   }
+ }
     function renderList() {
       const query = document.getElementById("searchInput").value.trim().toLowerCase();
       const statusFilter = document.getElementById("statusFilter").value;
