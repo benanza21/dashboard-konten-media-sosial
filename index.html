@@ -922,14 +922,40 @@
 
       listEl.innerHTML = paginatedItems.map((item, idx) => {
         const itemNumber = startIndex + idx + 1;
+        const revCount = parseInt(item.revisionCount, 10) || 0;
         const safeUrl = sanitizeUrl(item.assetUrl);
         const isConfirmingDelete = pendingDeleteId === item.id;
         const isEditingRevision = activeRevisionId === item.id;
         const isEditingContent = activeEditId === item.id;
         const hasAuditInfo = item.approver || item.approvedAt;
         const canCreatorEdit = item.status === "revision" && (currentUser.role === "creator" || currentUser.name === item.creator);
-        const itemNumber = startIndex + idx + 1;
-        const revCount = parseInt(item.revisionCount, 10) || 0;
+
+        return `
+          <article class="submission-item" data-id="${escapeHtml(item.id)}">
+            <div class="item-header">
+              <div class="item-title"><span style="color:var(--primary);margin-right:6px;">#${itemNumber}</span>${escapeHtml(item.title)}</div>
+              ${item.status === "revision" && revCount > 0
+                ? `<span class="badge revision">Perlu Revisi (ke-${revCount})</span>`
+                : getStatusBadge(item.status)}
+            </div>
+            <div class="meta">
+              <strong>${escapeHtml(item.platform)}</strong> • Rencana tayang: <strong>${escapeHtml(item.publishDate)}</strong> • Pengaju: ${escapeHtml(item.creator)}
+            </div>
+            <div class="caption-box">${escapeHtml(item.caption)}</div>
+            ${safeUrl ? `<a class="asset-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">Lihat Aset / Preview Konten ↗</a>` : ""}
+
+            ${item.status === "approved" && hasAuditInfo ? `
+              <div class="approval-log">
+                <strong>Akun Penyetuju:</strong> ${escapeHtml(item.approver || "-")} • <strong>Waktu:</strong> ${escapeHtml(item.approvedAt || "-")}${revCount > 0 ? ` • <em>(Disetujui setelah ${revCount}x revisi)</em>` : ""}
+              </div>
+            ` : ""}
+
+            ${item.status === "revision" ? `
+              <div class="revision-note">
+                <div><strong>Catatan Revisi${revCount > 0 ? ` ke-${revCount}` : ""}:</strong> ${escapeHtml(item.revisionNote || "-")}</div>
+                ${hasAuditInfo ? `<div style="margin-top:4px;font-size:0.78rem;opacity:0.9;">Diminta oleh <strong>${escapeHtml(item.approver || "-")}</strong> pada ${escapeHtml(item.approvedAt || "-")}</div>` : ""}
+              </div>
+            ` : ""}
 
         return `
           <article class="submission-item" data-id="${escapeHtml(item.id)}">
