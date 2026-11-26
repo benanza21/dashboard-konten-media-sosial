@@ -812,9 +812,7 @@
     async function fetchSubmissions() {
       setSyncStatus("Menyinkronkan...");
       try {
-        const res = await fetch(`${APPS_SCRIPT_URL}?t=${Date.now()}`);
-        const result = await res.json();
-        if (!result.ok) throw new Error(result.error || "Gagal memuat data");
+        const result = await postToSheet({ action: "getSubmissions" });
         submissions = result.data || [];
         renderList();
         const now = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
@@ -823,7 +821,7 @@
         console.error(err);
         setSyncStatus("Gagal terhubung ke Google Sheets");
         document.getElementById("submissionList").innerHTML =
-          `<div class="empty-state">Gagal mengambil data. Pastikan APPS_SCRIPT_URL benar dan deployment Apps Script sudah diperbarui.</div>`;
+          `<div class="empty-state" style="color:#991b1b;">Detail Error: <strong>${escapeHtml(err.message)}</strong></div>`;
       }
     }
 
