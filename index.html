@@ -534,6 +534,41 @@
       <div id="exportAlert" class="alert-box alert-error hidden"></div>
       <form id="exportFilterForm">
         <div class="form-group" id="exportCreatorGroup">
+          <p style="font-size: 0.83rem; color: var(--muted); margin-bottom: 14px;">
+        Pilih kriteria filter laporan berdasarkan pemilik akun Creator, Platform, Status, serta periode Bulan dan Tahun rencana tayang.
+      </p>
+      <div id="exportAlert" class="alert-box alert-error hidden"></div>
+      <form id="exportFilterForm">
+        <div class="form-group" id="exportCreatorGroup">
+          <label for="exportCreatorFilter">Pemilik Akun Creator</label>
+          <select id="exportCreatorFilter">
+            <option value="all">Semua Creator</option>
+          </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label for="exportPlatformFilter">Platform</label>
+            <select id="exportPlatformFilter">
+              <option value="all">Semua Platform</option>
+              <option value="Instagram">Instagram</option>
+              <option value="TikTok">TikTok</option>
+              <option value="YouTube">YouTube</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="X / Twitter">X / Twitter</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="exportStatusFilter">Status Konten</label>
+            <select id="exportStatusFilter">
+              <option value="all">Semua Status</option>
+              <option value="approved">Disetujui</option>
+              <option value="pending">Menunggu Review</option>
+              <option value="revision">Perlu Revisi</option>
+            </select>
+          </div>
+        </div>
           <label for="exportCreatorFilter">Pemilik Akun Creator</label>
           <select id="exportCreatorFilter">
             <option value="all">Semua Creator</option>
@@ -1570,27 +1605,30 @@
     const exportAlert = document.getElementById("exportAlert");
 
     function getFilteredExportData() {
-      const selectedCreator = document.getElementById("exportCreatorFilter").value;
-      const selectedStatus = document.getElementById("exportStatusFilter").value;
-      const selectedMonth = document.getElementById("exportMonthFilter").value;
-      const selectedYear = document.getElementById("exportYearFilter").value;
+      function getFilteredExportData() {
+   const selectedCreator = document.getElementById("exportCreatorFilter").value;
+   const selectedPlatform = document.getElementById("exportPlatformFilter").value;
+   const selectedStatus = document.getElementById("exportStatusFilter").value;
+   const selectedMonth = document.getElementById("exportMonthFilter").value;
+   const selectedYear = document.getElementById("exportYearFilter").value;
 
-      return submissions.filter(item => {
-        const creatorName = (item.creator || "").trim();
-        const matchCreator = selectedCreator === "all" || creatorName === selectedCreator;
-        const matchStatus = selectedStatus === "all" || item.status === selectedStatus;
+   return submissions.filter(item => {
+     const creatorName = (item.creator || "").trim();
+     const matchCreator = selectedCreator === "all" || creatorName === selectedCreator;
+     const matchPlatform = selectedPlatform === "all" || item.platform === selectedPlatform;
+     const matchStatus = selectedStatus === "all" || item.status === selectedStatus;
 
-        const dateStr = String(item.publishDate || "");
-        const hasValidDate = /^\d{4}-\d{2}/.test(dateStr);
-        const itemYear = hasValidDate ? dateStr.slice(0, 4) : "";
-        const itemMonth = hasValidDate ? dateStr.slice(5, 7) : "";
+     const dateStr = String(item.publishDate || "");
+     const hasValidDate = /^\d{4}-\d{2}/.test(dateStr);
+     const itemYear = hasValidDate ? dateStr.slice(0, 4) : "";
+     const itemMonth = hasValidDate ? dateStr.slice(5, 7) : "";
 
-        const matchYear = selectedYear === "all" || itemYear === selectedYear;
-        const matchMonth = selectedMonth === "all" || itemMonth === selectedMonth;
+     const matchYear = selectedYear === "all" || itemYear === selectedYear;
+     const matchMonth = selectedMonth === "all" || itemMonth === selectedMonth;
 
-        return matchCreator && matchStatus && matchYear && matchMonth;
-      });
-    }
+     return matchCreator && matchPlatform && matchStatus && matchYear && matchMonth;
+   });
+ }
 
     function updateExportPreview() {
       exportAlert.classList.add("hidden");
@@ -1613,7 +1651,7 @@
       )].sort((a, b) => a.localeCompare(b));
 
       creatorSelect.innerHTML = `<option value="all">Semua Creator</option>` +
-        uniqueCreators.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+      uniqueCreators.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
       creatorSelect.removeAttribute("disabled");
       creatorSelect.disabled = false;
       creatorGroup.style.opacity = "1";
@@ -1633,7 +1671,7 @@
 
       yearSelect.innerHTML = `<option value="all">Semua Tahun</option>` +
         uniqueYears.map(y => `<option value="${y}">${y}</option>`).join("");
-
+      document.getElementById("exportPlatformFilter").value = "all";
       document.getElementById("exportStatusFilter").value = "all";
       document.getElementById("exportMonthFilter").value = "all";
       updateExportPreview();
@@ -1641,6 +1679,7 @@
     }
 
     document.getElementById("exportCreatorFilter").addEventListener("change", updateExportPreview);
+    document.getElementById("exportPlatformFilter").addEventListener("change", updateExportPreview);
     document.getElementById("exportStatusFilter").addEventListener("change", updateExportPreview);
     document.getElementById("exportMonthFilter").addEventListener("change", updateExportPreview);
     document.getElementById("exportYearFilter").addEventListener("change", updateExportPreview);
@@ -1659,18 +1698,20 @@
       }
 
       const selectedCreator = document.getElementById("exportCreatorFilter").value;
-      const selectedStatus = document.getElementById("exportStatusFilter").value;
-      const selectedMonth = document.getElementById("exportMonthFilter").value;
-      const selectedYear = document.getElementById("exportYearFilter").value;
+   const selectedPlatform = document.getElementById("exportPlatformFilter").value;
+   const selectedStatus = document.getElementById("exportStatusFilter").value;
+   const selectedMonth = document.getElementById("exportMonthFilter").value;
+   const selectedYear = document.getElementById("exportYearFilter").value;
 
-      const suffixParts = [];
-      if (selectedCreator !== "all") suffixParts.push(selectedCreator.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
-      if (selectedStatus !== "all") suffixParts.push(selectedStatus);
-      if (selectedYear !== "all") suffixParts.push(selectedYear);
-      if (selectedMonth !== "all") suffixParts.push("bln-" + selectedMonth);
+   const suffixParts = [];
+   if (selectedCreator !== "all") suffixParts.push(selectedCreator.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+   if (selectedPlatform !== "all") suffixParts.push(selectedPlatform.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+   if (selectedStatus !== "all") suffixParts.push(selectedStatus);
+   if (selectedYear !== "all") suffixParts.push(selectedYear);
+   if (selectedMonth !== "all") suffixParts.push("bln-" + selectedMonth);
 
-      downloadCSVFile(filteredRows, suffixParts.join("-"));
-      exportModal.classList.add("hidden");
+   downloadCSVFile(filteredRows, suffixParts.join("-"));
+   exportModal.classList.add("hidden");
     });
 
     function downloadCSVFile(dataList, fileSuffix = "") {
