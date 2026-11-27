@@ -599,6 +599,221 @@
     </div>
   </div>
 
+  // LOGIKA PERINTAH PEMBUATAN KONTEN
+    const instructionsModal = document.getElementById("instructionsModal");
+    const instructionAlert = document.getElementById("instructionAlert");
+
+    async function fetchInstructions() {
+      try {
+        const res = await postToSheet({ action: "getInstructions" });
+        instructions = res.data || [];
+        updateInstructionBadge();
+        renderInstructionsList();
+      } catch (err) {
+        console.error("Gagal memuat perintah konten:", err);
+      }
+    }
+
+    function updateInstructionBadge() {
+      const badge = document.getElementById("instructionBadge");
+      if (!badge) return;
+      const openCount = instructions.filter(i => i.status === "open").length;
+      if (openCount > 0) {
+        badge.textContent = openCount;
+        badge.classList.remove("hidden");
+      } else {
+        badge.classList.add("hidden");
+      }
+    }
+
+    document.getElementById("openInstructionsModalBtn").addEventListener("click", () => {
+      instructionAlert.classList.add("hidden");
+      const formEl = document.getElementById("instructionForm");
+      if (currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin")) {
+        formEl.classList.remove("hidden");
+      } else {
+        formEl.classList.add("hidden");
+      }
+      instructionsModal.classList.remove("hidden");
+      fetchInstructions();
+    });
+
+    document.getElementById("closeInstructionsModalBtn").addEventListener("click", () => {
+      instructionsModal.classList.add("hidden");
+    });
+
+    document.getElementById("instructionForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!currentUser || (currentUser.role !== "approver" && currentUser.role !== "superadmin")) return;
+
+      const btn = document.getElementById("saveInstructionBtn");
+      btn.disabled = true;
+      btn.textContent = "Mengirim Perintah...";
+      instructionAlert.className = "alert-box hidden";
+
+      const newInst = {
+        id: "INST-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6),
+        title: document.getElementById("instTitle").value.trim(),
+        platform: document.getElementById("instPlatform").value,
+        publishDate: document.getElementById("instPublishDate").value,
+        caption: document.getElementById("instCaption").value.trim(),
+        assignedBy: currentUser.name
+      };
+
+      try {
+        await postToSheet({ action: "createInstruction", item: newInst });
+        e.target.reset();
+        instructionAlert.textContent = "Perintah pembuatan konten berhasil dikirim ke tim Creator!";
+        instructionAlert.className = "alert-box alert-success";
+        await fetchInstructions();
+      } catch (err) {
+        instructionAlert.textContent = err.message;
+        instructionAlert.className = "alert-box alert-error";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Kirim Perintah Konten";
+      }
+    });
+
+    function renderInstructionsList() {
+      const container = document.getElementById("instructionsListContainer");
+      if (!container) return;
+
+      if (instructions.length === 0) {
+        container.innerHTML = `<div style="font-size:0.84rem;color:var(--muted);text-align:center;padding:18px 0;">Belum ada perintah pembuatan konten.</div>`;
+        return;
+      }
+
+      const canManage = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
+      const isCreator = currentUser && (currentUser.role === "creator" || currentUser.role === "superadmin");
+
+      container.innerHTML = instructions.map(inst => {
+        const isDone = inst.status === "done";
+        return `
+          <div style="border:1px solid var(--border);border-radius:8px;padding:12px;background:${isDone ? "#f8fafc" : "#fffbeb"};font-size:0.84rem;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px;">
+              <strong style="font-size:0.92rem;color:var(--text);">${escapeHtml(inst.title)}</strong>
+              <span class="badge ${isDone ? "approved" : "pending"}">${isDone ? "Selesai" : "Perlu Dikerjakan"}</span>
+            </div>
+            <div style="font-size:0.78rem;color:var(--muted);margin-bottom:8px;">
+              Platform: <strong>${escapeHtml(inst.platform)}</strong> • Tanggal Tayang: <strong>${escapeHtml(inst.publishDate)}</strong> • Oleh: ${escapeHtml(inst.assignedBy)}
+            </div>
+            <div style="background:#ffffff;border:1px solid var(--border);padding:8px 10px;border-radius:6px;white-space:pre-line;margin-bottom:8px;">${escapeHtml(inst.caption)}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              ${isCreator && !isDone ? `
+                <button type="button" class="btn-edit" style="padding:5px 10px;font-size:0.78rem;" data-use-inst="${escapeHtml(inst.id)}">Gunakan ke Form Pengajuan</button>
+              ` : ""}
+              ${canManage ? `
+                <button type="button" class="btn-secondary" style="padding:5px 10px;font-size:0.78rem;" data-toggle-inst="${escapeHtml(inst.id)}" data-next-status="${isDone ? "open" : "done"}">
+                  ${isDone ? "Buka Kembali" : "Tandai Selesai"}
+                </button>
+                <button type="button" class="btn-logout" style="padding:5px 10px;font-size:0.78rem;margin-left:auto;" data-del-inst="${escapeHtml(inst.id)}">Hapus</button>
+              ` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    document.getElementById("instructionsListContainer").addEventListener("click", async (e) => {
+      // Creator klik "Gunakan ke Form Pengajuan" -> otomatis mengisi form Ajukan Konten Baru
+      const useBtn = e.target.closest("button[data-use-inst]");
+      if (useBtn) {
+        const inst = instructions.find(i => i.id === useBtn.dataset.useInst);
+        if (inst) {
+          document.getElementById("title").value = inst.title;
+          document.getElementById("platform").value = inst.platform;
+          document.getElementById("publishDate").value = inst.publishDate;
+          document.getElementById("caption").value = inst.caption;
+          instructionsModal.classList.add("hidden");
+          document.getElementById("title").focus();
+          setSyncStatus("Data perintah konten disalin ke form pengajuan.");
+        }
+        return;
+      }
+
+      const toggleBtn = e.target.closest("button[data-toggle-inst]");
+      if (toggleBtn) {
+        toggleBtn.disabled = true;
+        try {
+          await postToSheet({
+            action: "updateInstructionStatus",
+            id: toggleBtn.dataset.toggleInst,
+            status: toggleBtn.dataset.nextStatus
+          });
+          await fetchInstructions();
+        } catch (err) {
+          instructionAlert.textContent = err.message;
+          instructionAlert.className = "alert-box alert-error";
+          toggleBtn.disabled = false;
+        }
+        return;
+      }
+
+      const delBtn = e.target.closest("button[data-del-inst]");
+      if (delBtn) {
+        delBtn.disabled = true;
+        try {
+          await postToSheet({ action: "deleteInstruction", id: delBtn.dataset.delInst });
+          await fetchInstructions();
+        } catch (err) {
+          instructionAlert.textContent = err.message;
+          instructionAlert.className = "alert-box alert-error";
+          delBtn.disabled = false;
+        }
+      }
+    });
+
+  <!-- MODAL PERINTAH PEMBUATAN KONTEN -->
+  <div id="instructionsModal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 580px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h2>Perintah Pembuatan Konten</h2>
+        <button type="button" class="btn-secondary" id="closeInstructionsModalBtn">Tutup</button>
+      </div>
+      <div id="instructionAlert" class="alert-box hidden"></div>
+
+      <!-- FORM INPUT KHUSUS APPROVER & SUPERADMIN -->
+      <form id="instructionForm" class="hidden" style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+        <div class="form-group">
+          <label for="instTitle">1. Judul Konten</label>
+          <input type="text" id="instTitle" placeholder="Contoh: Infografis Layanan Paspor Simpatik" required />
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label for="instPlatform">2. Platform yang Digunakan</label>
+            <select id="instPlatform" required>
+              <option value="Instagram">Instagram</option>
+              <option value="TikTok">TikTok</option>
+              <option value="YouTube">YouTube</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="X / Twitter">X / Twitter</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="instPublishDate">3. Tanggal Tayang</label>
+            <input type="date" id="instPublishDate" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="instCaption">4. Caption</label>
+          <textarea id="instCaption" placeholder="Tulis arahan caption, poin informasi utama, atau tagar wajib..." required></textarea>
+        </div>
+
+        <button type="submit" class="btn-primary" id="saveInstructionBtn">Kirim Perintah Konten</button>
+      </form>
+
+      <!-- DAFTAR PERINTAH KONTEN (DILIHAT SEMUA ROLE) -->
+      <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; color: var(--text);">
+        Daftar Instruksi Konten Aktif
+      </div>
+      <div id="instructionsListContainer" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px; padding-right: 4px;"></div>
+    </div>
+  </div>
+
   <!-- HALAMAN DASHBOARD -->
   <div id="dashboardSection" class="container hidden">
     <header>
@@ -611,6 +826,7 @@
         <span class="sync-status" id="syncStatus">Memuat data...</span>
         <button type="button" class="btn-secondary" id="refreshBtn">Muat Ulang</button>
         <button type="button" class="btn-secondary" id="exportBtn">Ekspor Laporan (CSV)</button>
+        <button type="button" class="btn-secondary" id="openInstructionsModalBtn">Perintah Konten <span id="instructionBadge" class="role-tag hidden" style="background:#fef3c7;color:#92400e;">0</span></button>
         <button type="button" class="btn-secondary hidden" id="openUsersModalBtn">Kelola Akun</button>
         <button type="button" class="btn-secondary" id="openPwdModalBtn">Ubah Password</button>
         <button type="button" class="btn-logout" id="logoutBtn">Keluar</button>
