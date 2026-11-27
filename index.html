@@ -494,10 +494,19 @@
     </div>
   </div>
 
-  <!-- MODAL FILTER EKSPOR LAPORAN (SUPERADMIN & APPROVER) -->
+  <!-- MODAL FILTER EKSPOR LAPORAN -->
   <div id="exportModal" class="modal-backdrop hidden">
-    <div class="form-group" id="exportCreatorGroup">
-      <div class="form-group" id="exportCreatorGroup">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Ekspor Laporan (CSV)</h2>
+        <button type="button" class="btn-secondary" id="closeExportModalBtn">Tutup</button>
+      </div>
+      <p style="font-size: 0.83rem; color: var(--muted); margin-bottom: 14px;">
+        Pilih kriteria filter laporan berdasarkan pemilik akun Creator, Status, serta periode Bulan dan Tahun rencana tayang.
+      </p>
+      <div id="exportAlert" class="alert-box alert-error hidden"></div>
+      <form id="exportFilterForm">
+        <div class="form-group" id="exportCreatorGroup">
           <label for="exportCreatorFilter">Pemilik Akun Creator</label>
           <select id="exportCreatorFilter">
             <option value="all">Semua Creator</option>
@@ -511,27 +520,6 @@
             <option value="approved">Disetujui</option>
             <option value="pending">Menunggu Review</option>
             <option value="revision">Perlu Revisi</option>
-          </select>
-        </div>
-          <label for="exportCreatorFilter">Pemilik Akun Creator</label>
-          <select id="exportCreatorFilter">
-            <option value="all">Semua Creator</option>
-          </select>
-        </div>
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2>Ekspor Laporan (CSV)</h2>
-        <button type="button" class="btn-secondary" id="closeExportModalBtn">Tutup</button>
-      </div>
-      <p style="font-size: 0.83rem; color: var(--muted); margin-bottom: 14px;">
-        Pilih kriteria filter laporan berdasarkan pemilik akun Creator serta periode Bulan dan Tahun rencana tayang.
-      </p>
-      <div id="exportAlert" class="alert-box alert-error hidden"></div>
-      <form id="exportFilterForm">
-        <div class="form-group">
-          <label for="exportCreatorFilter">Pemilik Akun Creator</label>
-          <select id="exportCreatorFilter">
-            <option value="all">Semua Creator</option>
           </select>
         </div>
 
@@ -571,7 +559,7 @@
       </form>
     </div>
   </div>
-  
+
   <!-- HALAMAN DASHBOARD -->
   <div id="dashboardSection" class="container hidden">
     <header>
@@ -696,7 +684,7 @@
 
   <script>
     // GANTI URL_WEB_APP_ANDA DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzzsHREWcPqfKqIAVGUijJg_Q0AXbzVZegG7CVxog6zw5OiqNnQNJL2HNmtJpUDdmxu/exec";
+    const APPS_SCRIPT_URL = "URL_WEB_APP_ANDA";
     const SESSION_KEY = "socmed_user_session_v1";
 
     let currentUser = null;
@@ -1487,101 +1475,32 @@
       }
     });
 
-    function exportToCSV() {
-      if (!submissions || submissions.length === 0) {
-        setSyncStatus("Tidak ada data untuk diekspor.");
-        return;
-      }
-
-      const headers = [
-        "ID", "Judul Konten", "Platform", "Rencana Tayang",
-        "Pengaju", "Tautan Aset", "Caption", "Status",
-        "Catatan Revisi", "Akun Penyetuju", "Waktu Persetujuan",
-        "Jumlah Revisi"
-      ];
-
-      const escapeCsv = (val) => {
-        const str = String(val ?? "").replace(/"/g, '""');
-        return `"${str}"`;
-      };
-
-      const rows = submissions.map(item => [
-        item.id,
-        item.title,
-        item.platform,
-        item.publishDate,
-        item.creator,
-        item.assetUrl,
-        item.caption,
-        item.status === "approved" ? "Disetujui" : item.status === "revision" ? "Perlu Revisi" : "Menunggu Review",
-        item.revisionNote,
-        item.approver,
-        item.approvedAt,
-        item.revisionCount || 0
-      ].map(escapeCsv).join(";"));
-
-      const csvContent = "\uFEFF" + [headers.map(escapeCsv).join(";"), ...rows].join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      const today = new Date().toISOString().slice(0, 10);
-      link.href = url;
-      link.setAttribute("download", `laporan-konten-medsos-${today}.csv`);
-      link.style.display = "none";
-      document.body.appendChild(link);
-      link.click();
-
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }, 200);
-    }
-
-    function syncPanelHeights() {
-      const asideEl = document.querySelector(".main-grid > aside.card");
-      const mainEl = document.querySelector(".main-grid > main.card");
-      if (!asideEl || !mainEl) return;
-
-      if (window.innerWidth <= 860) {
-        mainEl.style.height = "auto";
-        return;
-      }
-
-      mainEl.style.height = "auto";
-      const targetHeight = asideEl.offsetHeight;
-      if (targetHeight > 0) {
-        mainEl.style.height = targetHeight + "px";
-      }
-    }
-
-    window.addEventListener("resize", syncPanelHeights);
-
-   const exportModal = document.getElementById("exportModal");
+    // LOGIKA EKSPOR LAPORAN CSV
+    const exportModal = document.getElementById("exportModal");
     const exportAlert = document.getElementById("exportAlert");
 
     function getFilteredExportData() {
-   const selectedCreator = document.getElementById("exportCreatorFilter").value;
-   const selectedStatus = document.getElementById("exportStatusFilter").value;
-   const selectedMonth = document.getElementById("exportMonthFilter").value;
-   const selectedYear = document.getElementById("exportYearFilter").value;
+      const selectedCreator = document.getElementById("exportCreatorFilter").value;
+      const selectedStatus = document.getElementById("exportStatusFilter").value;
+      const selectedMonth = document.getElementById("exportMonthFilter").value;
+      const selectedYear = document.getElementById("exportYearFilter").value;
 
-   return submissions.filter(item => {
-     const creatorName = (item.creator || "").trim();
-     const matchCreator = selectedCreator === "all" || creatorName === selectedCreator;
-     const matchStatus = selectedStatus === "all" || item.status === selectedStatus;
+      return submissions.filter(item => {
+        const creatorName = (item.creator || "").trim();
+        const matchCreator = selectedCreator === "all" || creatorName === selectedCreator;
+        const matchStatus = selectedStatus === "all" || item.status === selectedStatus;
 
-     const dateStr = String(item.publishDate || "");
-     const hasValidDate = /^\d{4}-\d{2}/.test(dateStr);
-     const itemYear = hasValidDate ? dateStr.slice(0, 4) : "";
-     const itemMonth = hasValidDate ? dateStr.slice(5, 7) : "";
+        const dateStr = String(item.publishDate || "");
+        const hasValidDate = /^\d{4}-\d{2}/.test(dateStr);
+        const itemYear = hasValidDate ? dateStr.slice(0, 4) : "";
+        const itemMonth = hasValidDate ? dateStr.slice(5, 7) : "";
 
-     const matchYear = selectedYear === "all" || itemYear === selectedYear;
-     const matchMonth = selectedMonth === "all" || itemMonth === selectedMonth;
+        const matchYear = selectedYear === "all" || itemYear === selectedYear;
+        const matchMonth = selectedMonth === "all" || itemMonth === selectedMonth;
 
-     return matchCreator && matchStatus && matchYear && matchMonth;
-   });
- }
+        return matchCreator && matchStatus && matchYear && matchMonth;
+      });
+    }
 
     function updateExportPreview() {
       exportAlert.classList.add("hidden");
@@ -1612,7 +1531,6 @@
         creatorGroup.style.opacity = "1";
       }
 
-      // Isi opsi Tahun secara otomatis dari Rencana Tanggal Tayang
       const yearSelect = document.getElementById("exportYearFilter");
       const relevantItems = isCreatorOnly
         ? submissions.filter(s => (s.creator || "").trim() === (currentUser.name || "").trim())
@@ -1627,6 +1545,7 @@
 
       yearSelect.innerHTML = `<option value="all">Semua Tahun</option>` +
         uniqueYears.map(y => `<option value="${y}">${y}</option>`).join("");
+
       document.getElementById("exportStatusFilter").value = "all";
       document.getElementById("exportMonthFilter").value = "all";
       updateExportPreview();
@@ -1634,9 +1553,9 @@
     }
 
     document.getElementById("exportCreatorFilter").addEventListener("change", updateExportPreview);
+    document.getElementById("exportStatusFilter").addEventListener("change", updateExportPreview);
     document.getElementById("exportMonthFilter").addEventListener("change", updateExportPreview);
     document.getElementById("exportYearFilter").addEventListener("change", updateExportPreview);
-    document.getElementById("exportStatusFilter").addEventListener("change", updateExportPreview);
 
     document.getElementById("closeExportModalBtn").addEventListener("click", () => {
       exportModal.classList.add("hidden");
@@ -1646,24 +1565,25 @@
       e.preventDefault();
       const filteredRows = getFilteredExportData();
       if (filteredRows.length === 0) {
-        exportAlert.textContent = "Tidak ada data pengajuan yang sesuai dengan filter Creator, Bulan, dan Tahun tersebut.";
+        exportAlert.textContent = "Tidak ada data pengajuan yang sesuai dengan filter tersebut.";
         exportAlert.classList.remove("hidden");
         return;
       }
 
       const selectedCreator = document.getElementById("exportCreatorFilter").value;
-   const selectedStatus = document.getElementById("exportStatusFilter").value;
-   const selectedMonth = document.getElementById("exportMonthFilter").value;
-   const selectedYear = document.getElementById("exportYearFilter").value;
+      const selectedStatus = document.getElementById("exportStatusFilter").value;
+      const selectedMonth = document.getElementById("exportMonthFilter").value;
+      const selectedYear = document.getElementById("exportYearFilter").value;
 
-   const suffixParts = [];
-   if (selectedCreator !== "all") suffixParts.push(selectedCreator.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
-   if (selectedStatus !== "all") suffixParts.push(selectedStatus);
-   if (selectedYear !== "all") suffixParts.push(selectedYear);
-   if (selectedMonth !== "all") suffixParts.push("bln-" + selectedMonth);
+      const suffixParts = [];
+      if (selectedCreator !== "all") suffixParts.push(selectedCreator.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+      if (selectedStatus !== "all") suffixParts.push(selectedStatus);
+      if (selectedYear !== "all") suffixParts.push(selectedYear);
+      if (selectedMonth !== "all") suffixParts.push("bln-" + selectedMonth);
 
-   downloadCSVFile(filteredRows, suffixParts.join("-"));
-   exportModal.classList.add("hidden");
+      downloadCSVFile(filteredRows, suffixParts.join("-"));
+      exportModal.classList.add("hidden");
+    });
 
     function downloadCSVFile(dataList, fileSuffix = "") {
       if (!dataList || dataList.length === 0) {
@@ -1717,9 +1637,29 @@
       }, 200);
     }
 
-    document.getElementById("exportBtn").addEventListener("click", () => {
-      openExportModal();
-    });
+    function syncPanelHeights() {
+      const asideEl = document.querySelector(".main-grid > aside.card");
+      const mainEl = document.querySelector(".main-grid > main.card");
+      if (!asideEl || !mainEl) return;
+
+      if (window.innerWidth <= 860) {
+        mainEl.style.height = "auto";
+        return;
+      }
+
+      mainEl.style.height = "auto";
+      const targetHeight = asideEl.offsetHeight;
+      if (targetHeight > 0) {
+        mainEl.style.height = targetHeight + "px";
+      }
+    }
+
+    window.addEventListener("resize", syncPanelHeights);
+
+    document.getElementById("exportBtn").addEventListener("click", openExportModal);
+    document.getElementById("refreshBtn").addEventListener("click", fetchSubmissions);
+    document.getElementById("searchInput").addEventListener("input", () => { currentPage = 1; renderList(); });
+    document.getElementById("statusFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
 
     initApp();
   </script>
