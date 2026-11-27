@@ -223,7 +223,34 @@
     }
     .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
 
-    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    ..toolbar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+      background: var(--bg);
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .toolbar .filter-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .toolbar .filter-field label {
+      font-size: 0.74rem;
+      color: var(--muted);
+      margin-bottom: 0;
+    }
+    .toolbar input, .toolbar select {
+      padding: 7px 10px;
+      font-size: 0.84rem;
+    }
+    .toolbar-actions {
+      display: flex;
+      align-items: flex-end;
+    }
     .toolbar input { flex: 1 1 200px; }
     .toolbar select { flex: 0 1 180px; }
 
@@ -667,20 +694,49 @@
       <main class="card">
         <h2>Daftar Pengajuan Konten</h2>
         <div class="toolbar">
-          <input type="search" id="searchInput" placeholder="Cari judul, platform, pengaju, atau penyetuju..." />
-          <select id="statusFilter">
-            <option value="all">Semua Status</option>
-            <option value="pending">Menunggu Review</option>
-            <option value="approved">Disetujui</option>
-            <option value="revision">Perlu Revisi</option>
-          </select>
-        </div>
+          <div class="filter-field">
+            <label for="searchInput">1. Judul / Topik Konten</label>
+            <input type="search" id="searchInput" placeholder="Cari judul atau topik..." />
+          </div>
 
-        <div class="submission-list" id="submissionList"></div>
-        <div class="pagination-bar" id="paginationBar"></div>
-      </main>
-    </div>
-  </div>
+          <div class="filter-field">
+            <label for="platformFilter">2. Platform</label>
+            <select id="platformFilter">
+              <option value="all">Semua Platform</option>
+              <option value="Instagram">Instagram</option>
+              <option value="TikTok">TikTok</option>
+              <option value="YouTube">YouTube</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="X / Twitter">X / Twitter</option>
+            </select>
+          </div>
+
+          <div class="filter-field">
+            <label for="dateFilter">3. Tanggal Pengajuan</label>
+            <input type="date" id="dateFilter" />
+          </div>
+
+          <div class="filter-field">
+            <label for="creatorFilter">4. Pengaju / Kreator</label>
+            <select id="creatorFilter">
+              <option value="all">Semua Pengaju</option>
+            </select>
+          </div>
+
+          <div class="filter-field">
+            <label for="statusFilter">Status</label>
+            <select id="statusFilter">
+              <option value="all">Semua Status</option>
+              <option value="pending">Menunggu Review</option>
+              <option value="approved">Disetujui</option>
+              <option value="revision">Perlu Revisi</option>
+            </select>
+          </div>
+
+          <div class="toolbar-actions">
+            <button type="button" class="btn-secondary" id="resetFilterBtn" style="width: 100%; padding: 8px 10px;">Reset Filter</button>
+          </div>
+        </div>
 
   <script>
     // GANTI URL_WEB_APP_ANDA DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
@@ -1023,6 +1079,8 @@
       try {
         const result = await postToSheet({ action: "getSubmissions" });
         submissions = result.data || [];
+        submissions = result.data || [];
+        populateSearchFilters();
         renderList();
         const now = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
         setSyncStatus(`Tersinkronisasi (${now})`);
@@ -1173,6 +1231,22 @@
       }
     }
 
+    function populateSearchFilters() {
+   const creatorSelect = document.getElementById("creatorFilter");
+   if (!creatorSelect) return;
+
+   const currentVal = creatorSelect.value;
+   const uniqueCreators = [...new Set(
+     submissions.map(s => (s.creator || "").trim()).filter(Boolean)
+   )].sort((a, b) => a.localeCompare(b));
+
+   creatorSelect.innerHTML = `<option value="all">Semua Pengaju</option>` +
+     uniqueCreators.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+
+   if (uniqueCreators.includes(currentVal)) {
+     creatorSelect.value = currentVal;
+   }
+ }
     function renderList() {
       const query = document.getElementById("searchInput").value.trim().toLowerCase();
       const statusFilter = document.getElementById("statusFilter").value;
@@ -1180,16 +1254,32 @@
       const paginationEl = document.getElementById("paginationBar");
       const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
 
-      const filtered = submissions.filter(item => {
-        const matchStatus = statusFilter === "all" || item.status === statusFilter;
-        const matchQuery =
-          !query ||
-          item.title.toLowerCase().includes(query) ||
-          item.platform.toLowerCase().includes(query) ||
-          item.creator.toLowerCase().includes(query) ||
-          (item.approver && item.approver.toLowerCase().includes(query));
-        return matchStatus && matchQuery;
-      });
+      const titleQuery = document.getElementById("searchInput").value.trim().toLowerCase();
+   const platformFilter = document.getElementById("platformFilter").value;
+   const dateFilter = document.getElementById("dateFilter").value;
+   const creatorFilter = document.getElementById("creatorFilter").value;
+   const statusFilter = document.getElementById("statusFilter").value;
+   const listEl = document.getElementById("submissionList");
+   const paginationEl = document.getElementById("paginationBar");
+   const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
+
+   const filtered = submissions.filter(item => {
+     const matchTitle = !titleQuery ||
+       (item.title || "").toLowerCase().includes(titleQuery) ||
+       (item.caption || "").toLowerCase().includes(titleQuery);
+
+     const matchPlatform = platformFilter === "all" || item.platform === platformFilter;
+
+     // Cocokkan dengan Tanggal Pengajuan (createdAt) maupun Rencana Tayang (publishDate)
+     const itemPublishDate = String(item.publishDate || "").slice(0, 10);
+     const itemCreatedDate = String(item.createdAt || item.submittedAt || "").slice(0, 10);
+     const matchDate = !dateFilter || itemPublishDate === dateFilter || itemCreatedDate === dateFilter;
+
+     const matchCreator = creatorFilter === "all" || (item.creator || "").trim() === creatorFilter;
+     const matchStatus = statusFilter === "all" || item.status === statusFilter;
+
+     return matchTitle && matchPlatform && matchDate && matchCreator && matchStatus;
+   });
 
       updateStats();
 
@@ -1656,8 +1746,21 @@
 
     document.getElementById("exportBtn").addEventListener("click", openExportModal);
     document.getElementById("refreshBtn").addEventListener("click", fetchSubmissions);
-    document.getElementById("searchInput").addEventListener("input", () => { currentPage = 1; renderList(); });
-    document.getElementById("statusFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+   document.getElementById("searchInput").addEventListener("input", () => { currentPage = 1; renderList(); });
+ document.getElementById("platformFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+ document.getElementById("dateFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+ document.getElementById("creatorFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+ document.getElementById("statusFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+
+ document.getElementById("resetFilterBtn").addEventListener("click", () => {
+   document.getElementById("searchInput").value = "";
+   document.getElementById("platformFilter").value = "all";
+   document.getElementById("dateFilter").value = "";
+   document.getElementById("creatorFilter").value = "all";
+   document.getElementById("statusFilter").value = "all";
+   currentPage = 1;
+   renderList();
+ });
 
     initApp();
   </script>
