@@ -223,7 +223,7 @@
     }
     .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
 
-    ..toolbar {
+    .toolbar {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
       gap: 10px;
@@ -251,8 +251,6 @@
       display: flex;
       align-items: flex-end;
     }
-    .toolbar input { flex: 1 1 200px; }
-    .toolbar select { flex: 0 1 180px; }
 
     .submission-list {
       display: flex;
@@ -529,12 +527,6 @@
         <button type="button" class="btn-secondary" id="closeExportModalBtn">Tutup</button>
       </div>
       <p style="font-size: 0.83rem; color: var(--muted); margin-bottom: 14px;">
-        Pilih kriteria filter laporan berdasarkan pemilik akun Creator, Status, serta periode Bulan dan Tahun rencana tayang.
-      </p>
-      <div id="exportAlert" class="alert-box alert-error hidden"></div>
-      <form id="exportFilterForm">
-        <div class="form-group" id="exportCreatorGroup">
-          <p style="font-size: 0.83rem; color: var(--muted); margin-bottom: 14px;">
         Pilih kriteria filter laporan berdasarkan pemilik akun Creator, Platform, Status, serta periode Bulan dan Tahun rencana tayang.
       </p>
       <div id="exportAlert" class="alert-box alert-error hidden"></div>
@@ -568,21 +560,6 @@
               <option value="revision">Perlu Revisi</option>
             </select>
           </div>
-        </div>
-          <label for="exportCreatorFilter">Pemilik Akun Creator</label>
-          <select id="exportCreatorFilter">
-            <option value="all">Semua Creator</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="exportStatusFilter">Status Konten</label>
-          <select id="exportStatusFilter">
-            <option value="all">Semua Status</option>
-            <option value="approved">Disetujui</option>
-            <option value="pending">Menunggu Review</option>
-            <option value="revision">Perlu Revisi</option>
-          </select>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -772,6 +749,12 @@
             <button type="button" class="btn-secondary" id="resetFilterBtn" style="width: 100%; padding: 8px 10px;">Reset Filter</button>
           </div>
         </div>
+
+        <div class="submission-list" id="submissionList"></div>
+        <div class="pagination-bar" id="paginationBar"></div>
+      </main>
+    </div>
+  </div>
 
   <script>
     // GANTI URL_WEB_APP_ANDA DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
@@ -1109,11 +1092,27 @@
       }
     });
 
+    function populateSearchFilters() {
+      const creatorSelect = document.getElementById("creatorFilter");
+      if (!creatorSelect) return;
+
+      const currentVal = creatorSelect.value;
+      const uniqueCreators = [...new Set(
+        submissions.map(s => (s.creator || "").trim()).filter(Boolean)
+      )].sort((a, b) => a.localeCompare(b));
+
+      creatorSelect.innerHTML = `<option value="all">Semua Pengaju</option>` +
+        uniqueCreators.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+
+      if (uniqueCreators.includes(currentVal)) {
+        creatorSelect.value = currentVal;
+      }
+    }
+
     async function fetchSubmissions() {
       setSyncStatus("Menyinkronkan...");
       try {
         const result = await postToSheet({ action: "getSubmissions" });
-        submissions = result.data || [];
         submissions = result.data || [];
         populateSearchFilters();
         renderList();
@@ -1266,53 +1265,32 @@
       }
     }
 
-    function populateSearchFilters() {
-   const creatorSelect = document.getElementById("creatorFilter");
-   if (!creatorSelect) return;
-
-   const currentVal = creatorSelect.value;
-   const uniqueCreators = [...new Set(
-     submissions.map(s => (s.creator || "").trim()).filter(Boolean)
-   )].sort((a, b) => a.localeCompare(b));
-
-   creatorSelect.innerHTML = `<option value="all">Semua Pengaju</option>` +
-     uniqueCreators.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
-
-   if (uniqueCreators.includes(currentVal)) {
-     creatorSelect.value = currentVal;
-   }
- }
     function renderList() {
+      const titleQuery = document.getElementById("searchInput").value.trim().toLowerCase();
+      const platformFilter = document.getElementById("platformFilter").value;
+      const dateFilter = document.getElementById("dateFilter").value;
+      const creatorFilter = document.getElementById("creatorFilter").value;
+      const statusFilter = document.getElementById("statusFilter").value;
       const listEl = document.getElementById("submissionList");
       const paginationEl = document.getElementById("paginationBar");
       const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
 
-      const titleQuery = document.getElementById("searchInput").value.trim().toLowerCase();
-   const platformFilter = document.getElementById("platformFilter").value;
-   const dateFilter = document.getElementById("dateFilter").value;
-   const creatorFilter = document.getElementById("creatorFilter").value;
-   const statusFilter = document.getElementById("statusFilter").value;
-   const listEl = document.getElementById("submissionList");
-   const paginationEl = document.getElementById("paginationBar");
-   const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
+      const filtered = submissions.filter(item => {
+        const matchTitle = !titleQuery ||
+          (item.title || "").toLowerCase().includes(titleQuery) ||
+          (item.caption || "").toLowerCase().includes(titleQuery);
 
-   const filtered = submissions.filter(item => {
-     const matchTitle = !titleQuery ||
-       (item.title || "").toLowerCase().includes(titleQuery) ||
-       (item.caption || "").toLowerCase().includes(titleQuery);
+        const matchPlatform = platformFilter === "all" || item.platform === platformFilter;
 
-     const matchPlatform = platformFilter === "all" || item.platform === platformFilter;
+        const itemPublishDate = String(item.publishDate || "").slice(0, 10);
+        const itemCreatedDate = String(item.createdAt || item.submittedAt || "").slice(0, 10);
+        const matchDate = !dateFilter || itemPublishDate === dateFilter || itemCreatedDate === dateFilter;
 
-     // Cocokkan dengan Tanggal Pengajuan (createdAt) maupun Rencana Tayang (publishDate)
-     const itemPublishDate = String(item.publishDate || "").slice(0, 10);
-     const itemCreatedDate = String(item.createdAt || item.submittedAt || "").slice(0, 10);
-     const matchDate = !dateFilter || itemPublishDate === dateFilter || itemCreatedDate === dateFilter;
+        const matchCreator = creatorFilter === "all" || (item.creator || "").trim() === creatorFilter;
+        const matchStatus = statusFilter === "all" || item.status === statusFilter;
 
-     const matchCreator = creatorFilter === "all" || (item.creator || "").trim() === creatorFilter;
-     const matchStatus = statusFilter === "all" || item.status === statusFilter;
-
-     return matchTitle && matchPlatform && matchDate && matchCreator && matchStatus;
-   });
+        return matchTitle && matchPlatform && matchDate && matchCreator && matchStatus;
+      });
 
       updateStats();
 
@@ -1603,30 +1581,29 @@
     const exportAlert = document.getElementById("exportAlert");
 
     function getFilteredExportData() {
-      function getFilteredExportData() {
-   const selectedCreator = document.getElementById("exportCreatorFilter").value;
-   const selectedPlatform = document.getElementById("exportPlatformFilter").value;
-   const selectedStatus = document.getElementById("exportStatusFilter").value;
-   const selectedMonth = document.getElementById("exportMonthFilter").value;
-   const selectedYear = document.getElementById("exportYearFilter").value;
+      const selectedCreator = document.getElementById("exportCreatorFilter").value;
+      const selectedPlatform = document.getElementById("exportPlatformFilter").value;
+      const selectedStatus = document.getElementById("exportStatusFilter").value;
+      const selectedMonth = document.getElementById("exportMonthFilter").value;
+      const selectedYear = document.getElementById("exportYearFilter").value;
 
-   return submissions.filter(item => {
-     const creatorName = (item.creator || "").trim();
-     const matchCreator = selectedCreator === "all" || creatorName === selectedCreator;
-     const matchPlatform = selectedPlatform === "all" || item.platform === selectedPlatform;
-     const matchStatus = selectedStatus === "all" || item.status === selectedStatus;
+      return submissions.filter(item => {
+        const creatorName = (item.creator || "").trim();
+        const matchCreator = selectedCreator === "all" || creatorName === selectedCreator;
+        const matchPlatform = selectedPlatform === "all" || item.platform === selectedPlatform;
+        const matchStatus = selectedStatus === "all" || item.status === selectedStatus;
 
-     const dateStr = String(item.publishDate || "");
-     const hasValidDate = /^\d{4}-\d{2}/.test(dateStr);
-     const itemYear = hasValidDate ? dateStr.slice(0, 4) : "";
-     const itemMonth = hasValidDate ? dateStr.slice(5, 7) : "";
+        const dateStr = String(item.publishDate || "");
+        const hasValidDate = /^\d{4}-\d{2}/.test(dateStr);
+        const itemYear = hasValidDate ? dateStr.slice(0, 4) : "";
+        const itemMonth = hasValidDate ? dateStr.slice(5, 7) : "";
 
-     const matchYear = selectedYear === "all" || itemYear === selectedYear;
-     const matchMonth = selectedMonth === "all" || itemMonth === selectedMonth;
+        const matchYear = selectedYear === "all" || itemYear === selectedYear;
+        const matchMonth = selectedMonth === "all" || itemMonth === selectedMonth;
 
-     return matchCreator && matchPlatform && matchStatus && matchYear && matchMonth;
-   });
- }
+        return matchCreator && matchPlatform && matchStatus && matchYear && matchMonth;
+      });
+    }
 
     function updateExportPreview() {
       exportAlert.classList.add("hidden");
@@ -1643,18 +1620,16 @@
       const creatorGroup = document.getElementById("exportCreatorGroup");
       const creatorSelect = document.getElementById("exportCreatorFilter");
 
-      // Ambil seluruh nama pengaju unik dari data pengajuan (bebas dipilih semua role)
       const uniqueCreators = [...new Set(
         submissions.map(s => (s.creator || "").trim()).filter(Boolean)
       )].sort((a, b) => a.localeCompare(b));
 
       creatorSelect.innerHTML = `<option value="all">Semua Creator</option>` +
-      uniqueCreators.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+        uniqueCreators.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
       creatorSelect.removeAttribute("disabled");
       creatorSelect.disabled = false;
       creatorGroup.style.opacity = "1";
 
-      // Ambil seluruh tahun unik dari data pengajuan + tahun berjalan
       const yearSelect = document.getElementById("exportYearFilter");
       const currentYear = String(new Date().getFullYear());
       const yearsFromData = submissions
@@ -1669,6 +1644,7 @@
 
       yearSelect.innerHTML = `<option value="all">Semua Tahun</option>` +
         uniqueYears.map(y => `<option value="${y}">${y}</option>`).join("");
+
       document.getElementById("exportPlatformFilter").value = "all";
       document.getElementById("exportStatusFilter").value = "all";
       document.getElementById("exportMonthFilter").value = "all";
@@ -1696,20 +1672,20 @@
       }
 
       const selectedCreator = document.getElementById("exportCreatorFilter").value;
-   const selectedPlatform = document.getElementById("exportPlatformFilter").value;
-   const selectedStatus = document.getElementById("exportStatusFilter").value;
-   const selectedMonth = document.getElementById("exportMonthFilter").value;
-   const selectedYear = document.getElementById("exportYearFilter").value;
+      const selectedPlatform = document.getElementById("exportPlatformFilter").value;
+      const selectedStatus = document.getElementById("exportStatusFilter").value;
+      const selectedMonth = document.getElementById("exportMonthFilter").value;
+      const selectedYear = document.getElementById("exportYearFilter").value;
 
-   const suffixParts = [];
-   if (selectedCreator !== "all") suffixParts.push(selectedCreator.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
-   if (selectedPlatform !== "all") suffixParts.push(selectedPlatform.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
-   if (selectedStatus !== "all") suffixParts.push(selectedStatus);
-   if (selectedYear !== "all") suffixParts.push(selectedYear);
-   if (selectedMonth !== "all") suffixParts.push("bln-" + selectedMonth);
+      const suffixParts = [];
+      if (selectedCreator !== "all") suffixParts.push(selectedCreator.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+      if (selectedPlatform !== "all") suffixParts.push(selectedPlatform.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+      if (selectedStatus !== "all") suffixParts.push(selectedStatus);
+      if (selectedYear !== "all") suffixParts.push(selectedYear);
+      if (selectedMonth !== "all") suffixParts.push("bln-" + selectedMonth);
 
-   downloadCSVFile(filteredRows, suffixParts.join("-"));
-   exportModal.classList.add("hidden");
+      downloadCSVFile(filteredRows, suffixParts.join("-"));
+      exportModal.classList.add("hidden");
     });
 
     function downloadCSVFile(dataList, fileSuffix = "") {
@@ -1785,21 +1761,21 @@
 
     document.getElementById("exportBtn").addEventListener("click", openExportModal);
     document.getElementById("refreshBtn").addEventListener("click", fetchSubmissions);
-   document.getElementById("searchInput").addEventListener("input", () => { currentPage = 1; renderList(); });
- document.getElementById("platformFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
- document.getElementById("dateFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
- document.getElementById("creatorFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
- document.getElementById("statusFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+    document.getElementById("searchInput").addEventListener("input", () => { currentPage = 1; renderList(); });
+    document.getElementById("platformFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+    document.getElementById("dateFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+    document.getElementById("creatorFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+    document.getElementById("statusFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
 
- document.getElementById("resetFilterBtn").addEventListener("click", () => {
-   document.getElementById("searchInput").value = "";
-   document.getElementById("platformFilter").value = "all";
-   document.getElementById("dateFilter").value = "";
-   document.getElementById("creatorFilter").value = "all";
-   document.getElementById("statusFilter").value = "all";
-   currentPage = 1;
-   renderList();
- });
+    document.getElementById("resetFilterBtn").addEventListener("click", () => {
+      document.getElementById("searchInput").value = "";
+      document.getElementById("platformFilter").value = "all";
+      document.getElementById("dateFilter").value = "";
+      document.getElementById("creatorFilter").value = "all";
+      document.getElementById("statusFilter").value = "all";
+      currentPage = 1;
+      renderList();
+    });
 
     initApp();
   </script>
