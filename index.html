@@ -1516,32 +1516,30 @@
 
       const creatorGroup = document.getElementById("exportCreatorGroup");
       const creatorSelect = document.getElementById("exportCreatorFilter");
-      const isCreatorOnly = currentUser && currentUser.role === "creator";
 
-      if (isCreatorOnly) {
-        const myName = (currentUser.name || "").trim();
-        creatorSelect.innerHTML = `<option value="${escapeHtml(myName)}" selected>${escapeHtml(myName)}</option>`;
-        creatorSelect.disabled = true;
-        creatorGroup.style.opacity = "0.85";
-      } else {
-        const uniqueCreators = [...new Set(submissions.map(s => (s.creator || "").trim()).filter(Boolean))].sort();
-        creatorSelect.innerHTML = `<option value="all">Semua Creator</option>` +
-          uniqueCreators.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
-        creatorSelect.disabled = false;
-        creatorGroup.style.opacity = "1";
-      }
+      // Ambil seluruh nama pengaju unik dari data pengajuan (bebas dipilih semua role)
+      const uniqueCreators = [...new Set(
+        submissions.map(s => (s.creator || "").trim()).filter(Boolean)
+      )].sort((a, b) => a.localeCompare(b));
 
+      creatorSelect.innerHTML = `<option value="all">Semua Creator</option>` +
+        uniqueCreators.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+      creatorSelect.removeAttribute("disabled");
+      creatorSelect.disabled = false;
+      creatorGroup.style.opacity = "1";
+
+      // Ambil seluruh tahun unik dari data pengajuan + tahun berjalan
       const yearSelect = document.getElementById("exportYearFilter");
-      const relevantItems = isCreatorOnly
-        ? submissions.filter(s => (s.creator || "").trim() === (currentUser.name || "").trim())
-        : submissions;
+      const currentYear = String(new Date().getFullYear());
+      const yearsFromData = submissions
+        .map(s => String(s.publishDate || "").trim())
+        .map(d => {
+          const match = d.match(/\b(20\d{2})\b/);
+          return match ? match[1] : "";
+        })
+        .filter(Boolean);
 
-      const uniqueYears = [...new Set(
-        relevantItems
-          .map(s => String(s.publishDate || ""))
-          .filter(d => /^\d{4}/.test(d))
-          .map(d => d.slice(0, 4))
-      )].sort((a, b) => b.localeCompare(a));
+      const uniqueYears = [...new Set([currentYear, ...yearsFromData])].sort((a, b) => b.localeCompare(a));
 
       yearSelect.innerHTML = `<option value="all">Semua Tahun</option>` +
         uniqueYears.map(y => `<option value="${y}">${y}</option>`).join("");
