@@ -580,21 +580,21 @@
         <!-- TAMPILAN STATISTIK (APPROVER & SUPERADMIN) -->
         <div id="platformStatsBox" class="hidden">
           <hr id="superadminStatsDivider" class="section-divider hidden" />
-          <h2 id="statsBoxTitle">Statistik per Platform</h2>
+          <h2 id="statsBoxTitle">Statistik Konten Tim</h2>
           <p id="statsBoxDesc" style="font-size: 0.83rem; color: var(--muted); margin-bottom: 12px;">
-            Distribusi pengajuan konten berdasarkan kanal media sosial.
+            Rekap pengajuan berdasarkan platform, creator, dan bulan tayang.
           </p>
 
-          <!-- TAB KHUSUS SUPER ADMIN -->
-          <div id="superadminStatsTabs" class="stats-tabs hidden">
+          <!-- TAB STATISTIK (APPROVER & SUPERADMIN) -->
+          <div id="statsTabsContainer" class="stats-tabs">
             <button type="button" class="stats-tab-btn active" data-stat-tab="platform">Platform</button>
             <button type="button" class="stats-tab-btn" data-stat-tab="creator">Creator</button>
-            <button type="button" class="stats-tab-btn" data-stat-tab="approver">Approver</button>
+            <button type="button" class="stats-tab-btn" data-stat-tab="monthly">Per Bulan</button>
           </div>
 
           <div class="platform-stats-list" id="platformStatsList"></div>
           <div class="platform-stats-list hidden" id="creatorStatsList"></div>
-          <div class="platform-stats-list hidden" id="approverStatsList"></div>
+          <div class="platform-stats-list hidden" id="monthlyStatsList"></div>
         </div>
       </aside>
 
@@ -668,25 +668,16 @@
       const createBox = document.getElementById("createContentBox");
       const platformStatsBox = document.getElementById("platformStatsBox");
       const superadminDivider = document.getElementById("superadminStatsDivider");
-      const superadminTabs = document.getElementById("superadminStatsTabs");
-      const statsBoxTitle = document.getElementById("statsBoxTitle");
-      const statsBoxDesc = document.getElementById("statsBoxDesc");
 
       if (currentUser.role === "approver") {
         createBox.classList.add("hidden");
         platformStatsBox.classList.remove("hidden");
         superadminDivider.classList.add("hidden");
-        superadminTabs.classList.add("hidden");
-        statsBoxTitle.textContent = "Statistik per Platform";
-        statsBoxDesc.textContent = "Distribusi pengajuan konten berdasarkan kanal media sosial.";
         switchStatsTab("platform");
       } else if (currentUser.role === "superadmin") {
         createBox.classList.remove("hidden");
         platformStatsBox.classList.remove("hidden");
         superadminDivider.classList.remove("hidden");
-        superadminTabs.classList.remove("hidden");
-        statsBoxTitle.textContent = "Statistik Konten Tim";
-        statsBoxDesc.textContent = "Rekap pengajuan berdasarkan platform, creator, dan approver.";
         switchStatsTab("platform");
       } else {
         createBox.classList.remove("hidden");
@@ -1044,6 +1035,61 @@
       }).join("");
     }
 
+    function switchStatsTab(tabName) {
+      document.querySelectorAll(".stats-tab-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.statTab === tabName);
+      });
+      document.getElementById("platformStatsList").classList.toggle("hidden", tabName !== "platform");
+      document.getElementById("creatorStatsList").classList.toggle("hidden", tabName !== "creator");
+      document.getElementById("monthlyStatsList").classList.toggle("hidden", tabName !== "monthly");
+      syncPanelHeights();
+    }
+
+    document.getElementById("statsTabsContainer").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-stat-tab]");
+      if (btn) switchStatsTab(btn.dataset.statTab);
+    });
+
+    function formatMonthYear(dateStr) {
+      if (!dateStr || !/^\d{4}-\d{2}/.test(dateStr)) {
+        return { key: "0000-00", label: "Tanggal Tidak Valid" };
+      }
+      const [year, month] = dateStr.split("-");
+      const monthNames = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+      ];
+      const idx = parseInt(month, 10) - 1;
+      const monthLabel = monthNames[idx] || month;
+      return {
+        key: `${year}-${month}`,
+        label: `${monthLabel} ${year}`
+      };
+    }
+
+    function buildStatRows(groups, totalCount) {
+      if (groups.length === 0) {
+        return `<div style="font-size:0.83rem;color:var(--muted);text-align:center;padding:12px 0;">Belum ada data tercatat.</div>`;
+      }
+      return groups.map(g => {
+        const pct = totalCount > 0 ? Math.round((g.count / totalCount) * 100) : 0;
+        const subText = `Disetujui: ${g.approved} • Menunggu: ${g.pending} • Revisi: ${g.revision}`;
+
+        return `
+          <div class="platform-stat-row">
+            <div class="platform-stat-header">
+              <strong>${escapeHtml(g.label)}</strong>
+              <span class="platform-stat-count">${g.count} konten (${pct}%)</span>
+            </div>
+            <div class="platform-bar-bg">
+              <div class="platform-bar-fill" style="width: ${pct}%;"></div>
+            </div>
+            <div style="font-size: 0.76rem; color: var(--muted);">${subText}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
     function updateStats() {
       const total = submissions.length;
       document.getElementById("statTotal").textContent = total;
@@ -1065,7 +1111,7 @@
             revision: items.filter(s => s.status === "revision").length
           };
         });
-        platformListEl.innerHTML = buildStatRows(platformGroups, total, "platform");
+        platformListEl.innerHTML = buildStatRows(platformGroups, total);
       }
 
       // 2. Statistik per Creator
@@ -1081,23 +1127,23 @@
           else if (s.status === "revision") creatorMap[name].revision++;
         });
         const creatorGroups = Object.values(creatorMap).sort((a, b) => b.count - a.count);
-        creatorListEl.innerHTML = buildStatRows(creatorGroups, total, "creator");
+        creatorListEl.innerHTML = buildStatRows(creatorGroups, total);
       }
 
-      // 3. Statistik per Approver
-      const approverListEl = document.getElementById("approverStatsList");
-      if (approverListEl) {
-        const reviewedItems = submissions.filter(s => s.approver && s.approver.trim() !== "");
-        const approverMap = {};
-        reviewedItems.forEach(s => {
-          const name = s.approver.trim();
-          if (!approverMap[name]) approverMap[name] = { label: name, count: 0, approved: 0, pending: 0, revision: 0 };
-          approverMap[name].count++;
-          if (s.status === "approved") approverMap[name].approved++;
-          else if (s.status === "revision") approverMap[name].revision++;
+      // 3. Statistik Pengajuan per Bulan (berdasarkan Rencana Tanggal Tayang)
+      const monthlyListEl = document.getElementById("monthlyStatsList");
+      if (monthlyListEl) {
+        const monthMap = {};
+        submissions.forEach(s => {
+          const { key, label } = formatMonthYear(s.publishDate);
+          if (!monthMap[key]) monthMap[key] = { key, label, count: 0, approved: 0, pending: 0, revision: 0 };
+          monthMap[key].count++;
+          if (s.status === "approved") monthMap[key].approved++;
+          else if (s.status === "pending") monthMap[key].pending++;
+          else if (s.status === "revision") monthMap[key].revision++;
         });
-        const approverGroups = Object.values(approverMap).sort((a, b) => b.count - a.count);
-        approverListEl.innerHTML = buildStatRows(approverGroups, reviewedItems.length, "approver");
+        const monthlyGroups = Object.values(monthMap).sort((a, b) => b.key.localeCompare(a.key));
+        monthlyListEl.innerHTML = buildStatRows(monthlyGroups, total);
       }
     }
 
