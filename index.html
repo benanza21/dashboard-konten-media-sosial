@@ -496,6 +496,28 @@
 
   <!-- MODAL FILTER EKSPOR LAPORAN (SUPERADMIN & APPROVER) -->
   <div id="exportModal" class="modal-backdrop hidden">
+    <div class="form-group" id="exportCreatorGroup">
+      <div class="form-group" id="exportCreatorGroup">
+          <label for="exportCreatorFilter">Pemilik Akun Creator</label>
+          <select id="exportCreatorFilter">
+            <option value="all">Semua Creator</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="exportStatusFilter">Status Konten</label>
+          <select id="exportStatusFilter">
+            <option value="all">Semua Status</option>
+            <option value="approved">Disetujui</option>
+            <option value="pending">Menunggu Review</option>
+            <option value="revision">Perlu Revisi</option>
+          </select>
+        </div>
+          <label for="exportCreatorFilter">Pemilik Akun Creator</label>
+          <select id="exportCreatorFilter">
+            <option value="all">Semua Creator</option>
+          </select>
+        </div>
     <div class="modal-card">
       <div class="modal-header">
         <h2>Ekspor Laporan (CSV)</h2>
@@ -1539,25 +1561,27 @@
     const exportAlert = document.getElementById("exportAlert");
 
     function getFilteredExportData() {
-      const selectedCreator = document.getElementById("exportCreatorFilter").value;
-      const selectedMonth = document.getElementById("exportMonthFilter").value;
-      const selectedYear = document.getElementById("exportYearFilter").value;
+   const selectedCreator = document.getElementById("exportCreatorFilter").value;
+   const selectedStatus = document.getElementById("exportStatusFilter").value;
+   const selectedMonth = document.getElementById("exportMonthFilter").value;
+   const selectedYear = document.getElementById("exportYearFilter").value;
 
-      return submissions.filter(item => {
-        const creatorName = (item.creator || "").trim();
-        const matchCreator = selectedCreator === "all" || creatorName === selectedCreator;
+   return submissions.filter(item => {
+     const creatorName = (item.creator || "").trim();
+     const matchCreator = selectedCreator === "all" || creatorName === selectedCreator;
+     const matchStatus = selectedStatus === "all" || item.status === selectedStatus;
 
-        const dateStr = String(item.publishDate || "");
-        const hasValidDate = /^\d{4}-\d{2}/.test(dateStr);
-        const itemYear = hasValidDate ? dateStr.slice(0, 4) : "";
-        const itemMonth = hasValidDate ? dateStr.slice(5, 7) : "";
+     const dateStr = String(item.publishDate || "");
+     const hasValidDate = /^\d{4}-\d{2}/.test(dateStr);
+     const itemYear = hasValidDate ? dateStr.slice(0, 4) : "";
+     const itemMonth = hasValidDate ? dateStr.slice(5, 7) : "";
 
-        const matchYear = selectedYear === "all" || itemYear === selectedYear;
-        const matchMonth = selectedMonth === "all" || itemMonth === selectedMonth;
+     const matchYear = selectedYear === "all" || itemYear === selectedYear;
+     const matchMonth = selectedMonth === "all" || itemMonth === selectedMonth;
 
-        return matchCreator && matchYear && matchMonth;
-      });
-    }
+     return matchCreator && matchStatus && matchYear && matchMonth;
+   });
+ }
 
     function updateExportPreview() {
       exportAlert.classList.add("hidden");
@@ -1571,16 +1595,31 @@
         return;
       }
 
-      // Isi opsi Creator secara otomatis dari data pengajuan yang ada
+      const creatorGroup = document.getElementById("exportCreatorGroup");
       const creatorSelect = document.getElementById("exportCreatorFilter");
-      const uniqueCreators = [...new Set(submissions.map(s => (s.creator || "").trim()).filter(Boolean))].sort();
-      creatorSelect.innerHTML = `<option value="all">Semua Creator</option>` +
-        uniqueCreators.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+      const isCreatorOnly = currentUser && currentUser.role === "creator";
+
+      if (isCreatorOnly) {
+        const myName = (currentUser.name || "").trim();
+        creatorSelect.innerHTML = `<option value="${escapeHtml(myName)}" selected>${escapeHtml(myName)}</option>`;
+        creatorSelect.disabled = true;
+        creatorGroup.style.opacity = "0.85";
+      } else {
+        const uniqueCreators = [...new Set(submissions.map(s => (s.creator || "").trim()).filter(Boolean))].sort();
+        creatorSelect.innerHTML = `<option value="all">Semua Creator</option>` +
+          uniqueCreators.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+        creatorSelect.disabled = false;
+        creatorGroup.style.opacity = "1";
+      }
 
       // Isi opsi Tahun secara otomatis dari Rencana Tanggal Tayang
       const yearSelect = document.getElementById("exportYearFilter");
+      const relevantItems = isCreatorOnly
+        ? submissions.filter(s => (s.creator || "").trim() === (currentUser.name || "").trim())
+        : submissions;
+
       const uniqueYears = [...new Set(
-        submissions
+        relevantItems
           .map(s => String(s.publishDate || ""))
           .filter(d => /^\d{4}/.test(d))
           .map(d => d.slice(0, 4))
@@ -1588,7 +1627,7 @@
 
       yearSelect.innerHTML = `<option value="all">Semua Tahun</option>` +
         uniqueYears.map(y => `<option value="${y}">${y}</option>`).join("");
-
+      document.getElementById("exportStatusFilter").value = "all";
       document.getElementById("exportMonthFilter").value = "all";
       updateExportPreview();
       exportModal.classList.remove("hidden");
@@ -1597,6 +1636,7 @@
     document.getElementById("exportCreatorFilter").addEventListener("change", updateExportPreview);
     document.getElementById("exportMonthFilter").addEventListener("change", updateExportPreview);
     document.getElementById("exportYearFilter").addEventListener("change", updateExportPreview);
+    document.getElementById("exportStatusFilter").addEventListener("change", updateExportPreview);
 
     document.getElementById("closeExportModalBtn").addEventListener("click", () => {
       exportModal.classList.add("hidden");
@@ -1612,17 +1652,18 @@
       }
 
       const selectedCreator = document.getElementById("exportCreatorFilter").value;
-      const selectedMonth = document.getElementById("exportMonthFilter").value;
-      const selectedYear = document.getElementById("exportYearFilter").value;
+   const selectedStatus = document.getElementById("exportStatusFilter").value;
+   const selectedMonth = document.getElementById("exportMonthFilter").value;
+   const selectedYear = document.getElementById("exportYearFilter").value;
 
-      const suffixParts = [];
-      if (selectedCreator !== "all") suffixParts.push(selectedCreator.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
-      if (selectedYear !== "all") suffixParts.push(selectedYear);
-      if (selectedMonth !== "all") suffixParts.push("bln-" + selectedMonth);
+   const suffixParts = [];
+   if (selectedCreator !== "all") suffixParts.push(selectedCreator.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+   if (selectedStatus !== "all") suffixParts.push(selectedStatus);
+   if (selectedYear !== "all") suffixParts.push(selectedYear);
+   if (selectedMonth !== "all") suffixParts.push("bln-" + selectedMonth);
 
-      downloadCSVFile(filteredRows, suffixParts.join("-"));
-      exportModal.classList.add("hidden");
-    });
+   downloadCSVFile(filteredRows, suffixParts.join("-"));
+   exportModal.classList.add("hidden");
 
     function downloadCSVFile(dataList, fileSuffix = "") {
       if (!dataList || dataList.length === 0) {
@@ -1677,11 +1718,7 @@
     }
 
     document.getElementById("exportBtn").addEventListener("click", () => {
-      if (currentUser && (currentUser.role === "superadmin" || currentUser.role === "approver")) {
-        openExportModal();
-      } else {
-        downloadCSVFile(submissions);
-      }
+      openExportModal();
     });
 
     initApp();
