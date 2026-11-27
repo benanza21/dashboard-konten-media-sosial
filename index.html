@@ -787,13 +787,8 @@
           </div>
 
           <div class="filter-field">
-            <label for="statusFilter">Status</label>
-            <select id="statusFilter">
-              <option value="all">Semua Status</option>
-              <option value="pending">Menunggu Review</option>
-              <option value="approved">Disetujui</option>
-              <option value="revision">Perlu Revisi</option>
-            </select>
+            <label for="captionFilter">5. Caption</label>
+            <input type="search" id="captionFilter" placeholder="Cari isi caption..." />
           </div>
 
           <div class="toolbar-actions">
@@ -1319,32 +1314,32 @@
       }
     }
 
-    function renderList() {
-      const titleQuery = document.getElementById("searchInput").value.trim().toLowerCase();
-      const platformFilter = document.getElementById("platformFilter").value;
-      const dateFilter = document.getElementById("dateFilter").value;
-      const creatorFilter = document.getElementById("creatorFilter").value;
-      const statusFilter = document.getElementById("statusFilter").value;
-      const listEl = document.getElementById("submissionList");
-      const paginationEl = document.getElementById("paginationBar");
-      const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
+    const titleQuery = document.getElementById("searchInput").value.trim().toLowerCase();
+   const platformFilter = document.getElementById("platformFilter").value;
+   const dateFilter = document.getElementById("dateFilter").value;
+   const creatorFilter = document.getElementById("creatorFilter").value;
+   const captionQuery = document.getElementById("captionFilter").value.trim().toLowerCase();
+   const listEl = document.getElementById("submissionList");
+   const paginationEl = document.getElementById("paginationBar");
+   const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
 
-      const filtered = submissions.filter(item => {
-        const matchTitle = !titleQuery ||
-          (item.title || "").toLowerCase().includes(titleQuery) ||
-          (item.caption || "").toLowerCase().includes(titleQuery);
+   const filtered = submissions.filter(item => {
+     const matchTitle = !titleQuery ||
+       (item.title || "").toLowerCase().includes(titleQuery);
 
-        const matchPlatform = platformFilter === "all" || item.platform === platformFilter;
+     const matchPlatform = platformFilter === "all" || item.platform === platformFilter;
 
-        const itemPublishDate = String(item.publishDate || "").slice(0, 10);
-        const itemCreatedDate = String(item.createdAt || item.submittedAt || "").slice(0, 10);
-        const matchDate = !dateFilter || itemPublishDate === dateFilter || itemCreatedDate === dateFilter;
+     const itemPublishDate = String(item.publishDate || "").slice(0, 10);
+     const itemCreatedDate = String(item.createdAt || item.submittedAt || "").slice(0, 10);
+     const matchDate = !dateFilter || itemPublishDate === dateFilter || itemCreatedDate === dateFilter;
 
-        const matchCreator = creatorFilter === "all" || (item.creator || "").trim() === creatorFilter;
-        const matchStatus = statusFilter === "all" || item.status === statusFilter;
+     const matchCreator = creatorFilter === "all" || (item.creator || "").trim() === creatorFilter;
 
-        return matchTitle && matchPlatform && matchDate && matchCreator && matchStatus;
-      });
+     const matchCaption = !captionQuery ||
+       (item.caption || "").toLowerCase().includes(captionQuery);
+
+     return matchTitle && matchPlatform && matchDate && matchCreator && matchCaption;
+   });
 
       updateStats();
 
@@ -1983,20 +1978,20 @@
       fetchInstructions();
     });
     document.getElementById("searchInput").addEventListener("input", () => { currentPage = 1; renderList(); });
-    document.getElementById("platformFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
-    document.getElementById("dateFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
-    document.getElementById("creatorFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
-    document.getElementById("statusFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+ document.getElementById("platformFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+ document.getElementById("dateFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+ document.getElementById("creatorFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+ document.getElementById("captionFilter").addEventListener("input", () => { currentPage = 1; renderList(); });
 
-    document.getElementById("resetFilterBtn").addEventListener("click", () => {
-      document.getElementById("searchInput").value = "";
-      document.getElementById("platformFilter").value = "all";
-      document.getElementById("dateFilter").value = "";
-      document.getElementById("creatorFilter").value = "all";
-      document.getElementById("statusFilter").value = "all";
-      currentPage = 1;
-      renderList();
-    });
+ document.getElementById("resetFilterBtn").addEventListener("click", () => {
+   document.getElementById("searchInput").value = "";
+   document.getElementById("platformFilter").value = "all";
+   document.getElementById("dateFilter").value = "";
+   document.getElementById("creatorFilter").value = "all";
+   document.getElementById("captionFilter").value = "";
+   currentPage = 1;
+   renderList();
+ });
 
     initApp();
   </script>
