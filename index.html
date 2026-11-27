@@ -1283,8 +1283,6 @@
    }
  }
     function renderList() {
-      const query = document.getElementById("searchInput").value.trim().toLowerCase();
-      const statusFilter = document.getElementById("statusFilter").value;
       const listEl = document.getElementById("submissionList");
       const paginationEl = document.getElementById("paginationBar");
       const isApprover = currentUser && (currentUser.role === "approver" || currentUser.role === "superadmin");
