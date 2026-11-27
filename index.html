@@ -494,6 +494,62 @@
     </div>
   </div>
 
+  <!-- MODAL FILTER EKSPOR LAPORAN (SUPERADMIN & APPROVER) -->
+  <div id="exportModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Ekspor Laporan (CSV)</h2>
+        <button type="button" class="btn-secondary" id="closeExportModalBtn">Tutup</button>
+      </div>
+      <p style="font-size: 0.83rem; color: var(--muted); margin-bottom: 14px;">
+        Pilih kriteria filter laporan berdasarkan pemilik akun Creator serta periode Bulan dan Tahun rencana tayang.
+      </p>
+      <div id="exportAlert" class="alert-box alert-error hidden"></div>
+      <form id="exportFilterForm">
+        <div class="form-group">
+          <label for="exportCreatorFilter">Pemilik Akun Creator</label>
+          <select id="exportCreatorFilter">
+            <option value="all">Semua Creator</option>
+          </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label for="exportMonthFilter">Bulan</label>
+            <select id="exportMonthFilter">
+              <option value="all">Semua Bulan</option>
+              <option value="01">Januari</option>
+              <option value="02">Februari</option>
+              <option value="03">Maret</option>
+              <option value="04">April</option>
+              <option value="05">Mei</option>
+              <option value="06">Juni</option>
+              <option value="07">Juli</option>
+              <option value="08">Agustus</option>
+              <option value="09">September</option>
+              <option value="10">Oktober</option>
+              <option value="11">November</option>
+              <option value="12">Desember</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="exportYearFilter">Tahun</label>
+            <select id="exportYearFilter">
+              <option value="all">Semua Tahun</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="exportPreviewCount" style="font-size: 0.82rem; color: var(--primary); font-weight: 600; margin: 4px 0 12px;">
+          Jumlah data terpilih: 0 konten
+        </div>
+
+        <button type="submit" class="btn-primary">Unduh Laporan CSV</button>
+      </form>
+    </div>
+  </div>
+  
   <!-- HALAMAN DASHBOARD -->
   <div id="dashboardSection" class="container hidden">
     <header>
@@ -1479,10 +1535,154 @@
 
     window.addEventListener("resize", syncPanelHeights);
 
-    document.getElementById("exportBtn").addEventListener("click", exportToCSV);
-    document.getElementById("refreshBtn").addEventListener("click", fetchSubmissions);
-    document.getElementById("searchInput").addEventListener("input", () => { currentPage = 1; renderList(); });
-    document.getElementById("statusFilter").addEventListener("change", () => { currentPage = 1; renderList(); });
+   const exportModal = document.getElementById("exportModal");
+    const exportAlert = document.getElementById("exportAlert");
+
+    function getFilteredExportData() {
+      const selectedCreator = document.getElementById("exportCreatorFilter").value;
+      const selectedMonth = document.getElementById("exportMonthFilter").value;
+      const selectedYear = document.getElementById("exportYearFilter").value;
+
+      return submissions.filter(item => {
+        const creatorName = (item.creator || "").trim();
+        const matchCreator = selectedCreator === "all" || creatorName === selectedCreator;
+
+        const dateStr = String(item.publishDate || "");
+        const hasValidDate = /^\d{4}-\d{2}/.test(dateStr);
+        const itemYear = hasValidDate ? dateStr.slice(0, 4) : "";
+        const itemMonth = hasValidDate ? dateStr.slice(5, 7) : "";
+
+        const matchYear = selectedYear === "all" || itemYear === selectedYear;
+        const matchMonth = selectedMonth === "all" || itemMonth === selectedMonth;
+
+        return matchCreator && matchYear && matchMonth;
+      });
+    }
+
+    function updateExportPreview() {
+      exportAlert.classList.add("hidden");
+      const count = getFilteredExportData().length;
+      document.getElementById("exportPreviewCount").textContent = `Jumlah data terpilih: ${count} konten`;
+    }
+
+    function openExportModal() {
+      if (!submissions || submissions.length === 0) {
+        setSyncStatus("Tidak ada data untuk diekspor.");
+        return;
+      }
+
+      // Isi opsi Creator secara otomatis dari data pengajuan yang ada
+      const creatorSelect = document.getElementById("exportCreatorFilter");
+      const uniqueCreators = [...new Set(submissions.map(s => (s.creator || "").trim()).filter(Boolean))].sort();
+      creatorSelect.innerHTML = `<option value="all">Semua Creator</option>` +
+        uniqueCreators.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+
+      // Isi opsi Tahun secara otomatis dari Rencana Tanggal Tayang
+      const yearSelect = document.getElementById("exportYearFilter");
+      const uniqueYears = [...new Set(
+        submissions
+          .map(s => String(s.publishDate || ""))
+          .filter(d => /^\d{4}/.test(d))
+          .map(d => d.slice(0, 4))
+      )].sort((a, b) => b.localeCompare(a));
+
+      yearSelect.innerHTML = `<option value="all">Semua Tahun</option>` +
+        uniqueYears.map(y => `<option value="${y}">${y}</option>`).join("");
+
+      document.getElementById("exportMonthFilter").value = "all";
+      updateExportPreview();
+      exportModal.classList.remove("hidden");
+    }
+
+    document.getElementById("exportCreatorFilter").addEventListener("change", updateExportPreview);
+    document.getElementById("exportMonthFilter").addEventListener("change", updateExportPreview);
+    document.getElementById("exportYearFilter").addEventListener("change", updateExportPreview);
+
+    document.getElementById("closeExportModalBtn").addEventListener("click", () => {
+      exportModal.classList.add("hidden");
+    });
+
+    document.getElementById("exportFilterForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const filteredRows = getFilteredExportData();
+      if (filteredRows.length === 0) {
+        exportAlert.textContent = "Tidak ada data pengajuan yang sesuai dengan filter Creator, Bulan, dan Tahun tersebut.";
+        exportAlert.classList.remove("hidden");
+        return;
+      }
+
+      const selectedCreator = document.getElementById("exportCreatorFilter").value;
+      const selectedMonth = document.getElementById("exportMonthFilter").value;
+      const selectedYear = document.getElementById("exportYearFilter").value;
+
+      const suffixParts = [];
+      if (selectedCreator !== "all") suffixParts.push(selectedCreator.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+      if (selectedYear !== "all") suffixParts.push(selectedYear);
+      if (selectedMonth !== "all") suffixParts.push("bln-" + selectedMonth);
+
+      downloadCSVFile(filteredRows, suffixParts.join("-"));
+      exportModal.classList.add("hidden");
+    });
+
+    function downloadCSVFile(dataList, fileSuffix = "") {
+      if (!dataList || dataList.length === 0) {
+        setSyncStatus("Tidak ada data untuk diekspor.");
+        return;
+      }
+
+      const headers = [
+        "ID", "Judul Konten", "Platform", "Rencana Tayang",
+        "Pengaju", "Tautan Aset", "Caption", "Status",
+        "Catatan Revisi", "Akun Penyetuju", "Waktu Persetujuan",
+        "Jumlah Revisi"
+      ];
+
+      const escapeCsv = (val) => {
+        const str = String(val ?? "").replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const rows = dataList.map(item => [
+        item.id,
+        item.title,
+        item.platform,
+        item.publishDate,
+        item.creator,
+        item.assetUrl,
+        item.caption,
+        item.status === "approved" ? "Disetujui" : item.status === "revision" ? "Perlu Revisi" : "Menunggu Review",
+        item.revisionNote,
+        item.approver,
+        item.approvedAt,
+        item.revisionCount || 0
+      ].map(escapeCsv).join(";"));
+
+      const csvContent = "\uFEFF" + [headers.map(escapeCsv).join(";"), ...rows].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      const today = new Date().toISOString().slice(0, 10);
+      const suffix = fileSuffix ? `-${fileSuffix}` : "";
+      link.href = url;
+      link.setAttribute("download", `laporan-konten-medsos${suffix}-${today}.csv`);
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 200);
+    }
+
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      if (currentUser && (currentUser.role === "superadmin" || currentUser.role === "approver")) {
+        openExportModal();
+      } else {
+        downloadCSVFile(submissions);
+      }
+    });
 
     initApp();
   </script>
